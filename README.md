@@ -1,15 +1,22 @@
 <div align="center">
 
+<img src="./store-assets/icon-128.png" alt="Pebble Icon" width="96" height="96" />
+
 # Pebble — Personal AI Study Tutor
 
 **Your personal AI academic tutor and virtual study companion that lives in your Chrome Side Panel.**
 
+[![Release](https://img.shields.io/github/v/release/will-iam08/Pebble-Personal-Ai-Tutor?color=E86A33)](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)](./chrome-extension/manifest.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-React%2019-3178C6?logo=typescript&logoColor=white)](./package.json)
 [![CI](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/actions/workflows/ci.yml/badge.svg)](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/actions/workflows/ci.yml)
 
-[Features](#-features) • [Supported AI Models](#-supported-ai-models) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Contributing](#-contributing)
+[Features](#-features) • [Supported AI Models](#-supported-ai-models) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Privacy Policy](./PRIVACY.md) • [Chrome Web Store Guide](./docs/CHROME_WEB_STORE.md)
+
+<p>
+  <img src="./store-assets/promo-small-440x280.png" alt="Pebble — Personal AI Study Tutor Chrome Side Panel Extension" width="440" />
+</p>
 
 </div>
 
@@ -67,7 +74,14 @@ Pebble is **Bring Your Own Key (BYOK)** — your API keys stay strictly in local
 
 ## Quick Start
 
-### Option 1: Build & Load the Unified Chrome Side Panel Extension
+### Option 1: Install the Pre-Built Chrome Extension (Fastest)
+
+1. Download **`pebble-chrome-extension-v2.3.0.zip`** from the [Latest GitHub Release](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/releases/latest) and unzip it.
+2. Open Chrome and navigate to `chrome://extensions/`.
+3. Enable **Developer mode** (top-right toggle) → click **Load unpacked** → select the unzipped folder.
+4. Click the **Pebble** icon in your toolbar, click **AI Key** (or the gear icon), pick a free or BYOK provider (Gemini free tier, OpenRouter, Ollama, or Local CLI Bridge), and click **Test Connection**.
+
+### Option 2: Build the Chrome Extension from Source
 
 **Prerequisites:** Node.js 20+.
 
@@ -77,16 +91,16 @@ git clone https://github.com/will-iam08/Pebble-Personal-Ai-Tutor.git
 cd Pebble-Personal-Ai-Tutor
 npm install
 
-# 2. Build the unified React Chrome Extension into dist-extension/
+# 2. Build the unified React Chrome Extension into dist-extension/ (or npm run package:extension for a .zip)
 npm run build:extension
 ```
 
 3. Open Chrome and navigate to `chrome://extensions/`.
 4. Enable **Developer mode** (top-right toggle).
 5. Click **Load unpacked** and select the **`dist-extension/`** folder.
-6. Click the **Pebble** toolbar icon to open the Side Panel, click **Setup AI Key** (or the gear icon), pick a free or BYOK provider (Gemini free tier, OpenRouter, or local Ollama), and click **Test Connection**.
+6. Click the **Pebble** toolbar icon to open the Side Panel, click **AI Key** (or the gear icon), pick a free or BYOK provider (Gemini free tier, OpenRouter, or local Ollama), and click **Test Connection**.
 
-### Option 2: Run the Web Workspace Locally
+### Option 3: Run the Web Workspace Locally
 
 ```bash
 # Optional: configure server-side Gemini key for "Local Server (.env)" mode
@@ -120,20 +134,26 @@ One shared React + TypeScript UI compiles cleanly to **both** the Chrome Side Pa
 
 ```text
 Pebble-Personal-Ai-Tutor/
-├── chrome-extension/           # MV3 manifest, service worker & content script
+├── chrome-extension/           # MV3 manifest, icons, service worker & content script
+│   ├── icons/                  # Extension icons (16x16, 32x32, 48x48, 128x128)
 │   ├── manifest.json           # Permissions, side panel config & provider host permissions
-│   ├── background.js           # Active-tab extraction bridge + check-in alarm scheduler
-│   └── content.js              # Clean DOM text extractor for active web pages
+│   ├── background.js           # Active-tab / LMS PDF extraction bridge + check-in alarms
+│   └── content.js              # Clean DOM & YouTube transcript extractor
+├── store-assets/               # Chrome Web Store listing artwork (128x128 icon + 440x280 promo tile)
+├── scripts/                    # Store validation & release zip bundler (package-extension.mjs)
+├── docs/                       # Chrome Web Store submission guide (CHROME_WEB_STORE.md)
 ├── sidepanel.html              # Chrome Side Panel HTML entry (built by vite.extension.config.ts)
 ├── vite.extension.config.ts    # Builds unified React Side Panel + MV3 scripts into dist-extension/
 ├── src/                        # Shared React 19 + TypeScript + Tailwind v4 codebase
 │   ├── sidepanel.tsx           # Extension entrypoint (<App mode="extension" />)
 │   ├── main.tsx                # Web sandbox entrypoint (<App mode="web" />)
 │   ├── components/             # Summary, Quiz, Tips, Chat, Vocab, Analytics, Settings, Pet Habitat
-│   ├── utils/                  # aiClient, tutorPrompts, extensionBridge, storage, missions, analytics
+│   ├── utils/                  # aiClient, fsrs, tutorPrompts, extensionBridge, storage, missions
 │   └── types/                  # AI provider catalog + study, pet, and quiz TypeScript models
 ├── server.ts                   # Optional local Express proxy (/api/tutor/*) + Vite middleware
-└── .github/                    # CI workflow, issue forms, and PR template
+├── pebble-bridge.ts            # Optional local subscription CLI bridge (claude, codex, gemini)
+├── PRIVACY.md                  # Public Privacy Policy for Chrome Web Store review
+└── .github/                    # CI workflow (with .zip artifact), issue forms, and PR template
 ```
 
 ---
