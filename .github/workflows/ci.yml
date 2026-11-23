@@ -32,13 +32,25 @@ jobs:
       - name: Build web app and Chrome extension
         run: npm run build:all
 
-      - name: Validate built Chrome Extension bundle
+      - name: Package Chrome Web Store zip
+        run: npm run package:extension
+
+      - name: Validate Chrome Web Store manifest & icons
         run: |
           node -e "
             const fs = require('fs');
-            for (const f of ['manifest.json', 'sidepanel.html', 'background.js', 'content.js']) {
+            for (const f of ['manifest.json', 'sidepanel.html', 'background.js', 'content.js', 'icons/icon16.png', 'icons/icon32.png', 'icons/icon48.png', 'icons/icon128.png']) {
               if (!fs.existsSync('dist-extension/' + f)) throw new Error('Missing dist-extension/' + f);
             }
-            JSON.parse(fs.readFileSync('dist-extension/manifest.json', 'utf8'));
-            console.log('dist-extension bundle validated successfully');
+            const manifest = JSON.parse(fs.readFileSync('dist-extension/manifest.json', 'utf8'));
+            if (!manifest.description || manifest.description.length > 132) {
+              throw new Error('manifest.description must be <= 132 chars');
+            }
+            console.log('dist-extension CWS bundle validated successfully');
           "
+
+      - name: Upload Chrome Extension zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pebble-chrome-extension
+          path: release/*.zip

@@ -107,6 +107,7 @@ You can also switch directly to any BYOK provider (Gemini, OpenRouter, Ollama, O
 | `npm run build` | Build the production web app to `dist/` |
 | `npm run build:extension` | Build the unified React Chrome Extension (MV3) to `dist-extension/` |
 | `npm run build:all` | Build both web (`dist/`) and Chrome extension (`dist-extension/`) |
+| `npm run package:extension` | Build and package `release/pebble-chrome-extension-v*.zip` for Chrome Web Store |
 | `npm run lint` | Run TypeScript typechecking (`tsc --noEmit`) |
 | `npm test` | Run unit tests (FSRS scheduler, Anki MathJax export, JSON parser) |
 | `npm start` | Run the server in production mode |
@@ -158,7 +159,7 @@ Pebble-Personal-Ai-Tutor/
 - [x] **Automated Unit Tests & CI:** Node test suite (`npm test`) covering FSRS scheduling, Anki MathJax export, deck deduplication, and resilient JSON parsing
 
 ### Up Next (Community Wishlist)
-- [ ] **Chrome Web Store Packaging:** Store listing assets, extension icons, and automated release zip artifact in GitHub Actions
+- [x] **Chrome Web Store Packaging:** Extension icons (`16`/`32`/`48`/`128`), `440x280` store promo tile, [Privacy Policy](./PRIVACY.md), [Chrome Web Store Submission Guide](./docs/CHROME_WEB_STORE.md), and automated `.zip` artifact in GitHub Actions
 - [ ] **Cross-Device Deck Sync:** Optional encrypted export/import or cloud sync for study decks and companion progress
 
 ---
