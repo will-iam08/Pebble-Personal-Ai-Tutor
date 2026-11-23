@@ -4,7 +4,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coffee, Maximize2, Minimize2, Moon, Settings, Sun, Timer, Volume2, VolumeX } from 'lucide-react';
+import { Coffee, Cpu, Maximize2, Minimize2, Moon, Settings, Sun, Timer, Volume2, VolumeX } from 'lucide-react';
+import {
+  AIProviderSettings,
+  getActiveModelName,
+  getProviderMeta,
+  isProviderReady,
+} from './types/ai';
 import {
   ACCESSORIES,
   AccessoryId,
@@ -31,15 +37,25 @@ import {
 import { SAMPLE_BROWSER_PAGES, SampleBrowserPage } from './data/samplePages';
 import { soundEngine } from './utils/audio';
 import {
+  loadAISettings,
   loadMuted,
   loadPetState,
   loadReminderSettings,
   loadTheme,
+  saveAISettings,
   saveMuted,
   savePetState,
   saveReminderSettings,
   saveTheme,
 } from './utils/storage';
+import {
+  extractActiveBrowserTab,
+  isChromeExtensionRuntime,
+  recordExtensionCheckIn,
+  syncExtensionReminderSettings,
+  syncPetNameToExtensionStorage,
+  triggerExtensionTestReminder,
+} from './utils/extensionBridge';
 import {
   applyMissionEvent,
   DAILY_ALL_CLEAR_REWARD,
@@ -70,6 +86,7 @@ import {
   fetchStudyTips,
   fetchVocabDefinition,
   sendTutorChat,
+  setActiveAISettings,
 } from './utils/tutorApi';
 import {
   createVocabEntry,
@@ -100,7 +117,17 @@ function formatFileSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-export default function App() {
+interface AppProps {
+  mode?: 'web' | 'extension';
+}
+
+export default function App({ mode }: AppProps = {}) {
+  const isExtensionMode = mode === 'extension' || (mode !== 'web' && isChromeExtensionRuntime());
+  const [aiSettings, setAiSettings] = useState<AIProviderSettings>(() => {
+    const initial = loadAISettings(isExtensionMode);
+    setActiveAISettings(initial);
+    return initial;
+  });
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
   const [muted, setMuted] = useState<boolean>(() => {
     const m = loadMuted();
@@ -204,6 +231,17 @@ export default function App() {
   useEffect(() => {
     saveReminderSettings(reminderSettings);
   }, [reminderSettings]);
+
+  useEffect(() => {
+    setActiveAISettings(aiSettings);
+    saveAISettings(aiSettings);
+  }, [aiSettings]);
+
+  useEffect(() => {
+    if (!isExtensionMode) return;
+    recordExtensionCheckIn();
+    syncPetNameToExtensionStorage(pet.name);
+  }, [isExtensionMode, pet.name]);
 
   // Pomodoro 1-second tick loop
   useEffect(() => {
@@ -527,8 +565,27 @@ export default function App() {
   };
 
   // Multi-Source Content Readers
-  const handleReadActivePage = useCallback(() => {
+  const handleReadActivePage = useCallback(async () => {
     soundEngine.playUiClick();
+    setApiError(null);
+
+    if (isExtensionMode) {
+      const result = await extractActiveBrowserTab();
+      if (!result.ok) {
+        setApiError(result.error);
+        return;
+      }
+      resetGeneratedOutputs();
+      setSource({
+        kind: 'page',
+        title: result.title,
+        text: result.text,
+        wordCount: result.wordCount,
+      });
+      triggerReaction('cheer', `Read "${result.title.slice(0, 32)}" — ready to summarize or quiz!`);
+      return;
+    }
+
     const domText = (articleRef.current?.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
     const fallbackText = activePage.sections
       .map((s) => `${s.heading}\n${s.paragraphs.join('\n')}${s.formula ? `\nFormula: ${s.formula}` : ''}`)
@@ -546,7 +603,7 @@ export default function App() {
     setJustExtracted(true);
     setTimeout(() => setJustExtracted(false), 900);
     triggerReaction('cheer', `Read "${activePage.course.split('·')[0].trim()}" — ready to summarize or quiz!`);
-  }, [activePage, triggerReaction]);
+  }, [activePage, isExtensionMode, triggerReaction]);
 
   const handleLoadPdf = useCallback(
     (file: File) => {
@@ -950,31 +1007,45 @@ export default function App() {
     analytics: 'Analytics',
   };
 
-  return (
-    <div className="w-full h-screen min-h-[620px] flex bg-[#F6F7F9] dark:bg-[#11171C] text-[#182026] dark:text-[#F1F3F5] overflow-hidden">
-      {/* Left: Open Browser Tab (Articles / Lecture Readings) */}
-      <BrowserStudyPane
-        activePage={activePage}
-        articleRef={articleRef}
-        sidePanelOpen={sidePanelOpen}
-        justExtracted={justExtracted}
-        onSelectPage={(page) => {
-          soundEngine.playUiClick();
-          setActivePage(page);
-        }}
-        onToggleSidePanel={() => {
-          soundEngine.playUiClick();
-          setSidePanelOpen((v) => !v);
-        }}
-      />
+  const activeProviderMeta = getProviderMeta(aiSettings.provider);
+  const activeModelLabel = getActiveModelName(aiSettings);
+  const providerConfigured = isProviderReady(aiSettings);
 
-      {/* Right: Docked Chrome Side Panel (Pebble AI Study Tutor) */}
-      {sidePanelOpen && (
+  return (
+    <div
+      className={`w-full h-screen flex bg-[#F6F7F9] dark:bg-[#11171C] text-[#182026] dark:text-[#F1F3F5] overflow-hidden ${
+        isExtensionMode ? 'min-h-0' : 'min-h-[620px]'
+      }`}
+    >
+      {/* Left: Open Browser Tab (Web Sandbox Demo Only) */}
+      {!isExtensionMode && (
+        <BrowserStudyPane
+          activePage={activePage}
+          articleRef={articleRef}
+          sidePanelOpen={sidePanelOpen}
+          justExtracted={justExtracted}
+          onSelectPage={(page) => {
+            soundEngine.playUiClick();
+            setActivePage(page);
+          }}
+          onToggleSidePanel={() => {
+            soundEngine.playUiClick();
+            setSidePanelOpen((v) => !v);
+          }}
+        />
+      )}
+
+      {/* Right (or Full-Width in Extension): Docked Chrome Side Panel (Pebble AI Study Tutor) */}
+      {(isExtensionMode || sidePanelOpen) && (
         <aside
-          className={`w-full h-full flex flex-col bg-[#F8FAFC] dark:bg-[#141C22] border-l border-[#D4DCE3] dark:border-[#293741] shadow-xl shrink-0 transition-[max-width] duration-200 ${
-            focusMode
-              ? 'max-w-[540px] xl:max-w-[580px]'
-              : 'max-w-[440px] xl:max-w-[464px]'
+          className={`w-full h-full flex flex-col bg-[#F8FAFC] dark:bg-[#141C22] shrink-0 transition-[max-width] duration-200 ${
+            isExtensionMode
+              ? 'max-w-none'
+              : `border-l border-[#D4DCE3] dark:border-[#293741] shadow-xl ${
+                  focusMode
+                    ? 'max-w-[540px] xl:max-w-[580px]'
+                    : 'max-w-[440px] xl:max-w-[464px]'
+                }`
           }`}
           aria-label="Pebble Chrome Side Panel"
         >
@@ -1041,8 +1112,26 @@ export default function App() {
               <div className="flex items-center gap-2 min-w-0">
                 <PebbleIcon className="w-5 h-5 shrink-0" />
                 <span className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] truncate">
-                  Pebble Study Tutor
+                  Pebble
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.playUiClick();
+                    setSettingsOpen(true);
+                  }}
+                  title={`Active AI: ${activeProviderMeta.name} (${activeModelLabel}). Click to change provider or API key.`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    providerConfigured
+                      ? 'bg-[#EFF3F6] dark:bg-[#22303A] border-[#DCE2E8] dark:border-[#324552] text-[#45535E] dark:text-[#B5C1C9] hover:border-[#E86A33]'
+                      : 'bg-[#FFF4EE] dark:bg-[#2B1F19] border-[#E86A33]/60 text-[#C44D1B] dark:text-[#F49A71]'
+                  }`}
+                >
+                  <Cpu className="w-3 h-3 shrink-0" />
+                  <span>
+                    {providerConfigured ? activeProviderMeta.shortName : 'Setup AI Key'}
+                  </span>
+                </button>
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
@@ -1249,13 +1338,16 @@ export default function App() {
 
       {settingsOpen && (
         <SettingsModal
+          isExtensionMode={isExtensionMode}
           petName={pet.name}
           theme={theme}
           muted={muted}
           reminderSettings={reminderSettings}
+          aiSettings={aiSettings}
           onClose={() => setSettingsOpen(false)}
           onRenamePet={(name) => {
             setPet((prev) => ({ ...prev, name }));
+            if (isExtensionMode) syncPetNameToExtensionStorage(name);
             triggerReaction('pet', `${name} likes the new study badge!`);
           }}
           onSetTheme={setTheme}
@@ -1266,10 +1358,21 @@ export default function App() {
               intervalHours,
               lastCheckInAt: Date.now(),
             });
+            if (isExtensionMode) {
+              syncExtensionReminderSettings(enabled, intervalHours);
+            }
           }}
           onPreviewReminder={() => {
             soundEngine.playPetPurr();
-            setReminderToastVisible(true);
+            if (isExtensionMode) {
+              void triggerExtensionTestReminder(reminderSettings.intervalHours);
+            } else {
+              setReminderToastVisible(true);
+            }
+          }}
+          onUpdateAISettings={(next) => {
+            setAiSettings(next);
+            setApiError(null);
           }}
         />
       )}

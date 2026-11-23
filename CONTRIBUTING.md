@@ -25,18 +25,22 @@ Thanks for your interest in contributing to **Pebble — Personal AI Study Tutor
    npm run dev
    ```
 5. **Testing the Chrome Extension**:
-   - Open `chrome://extensions/`, enable **Developer mode**, and click **Load unpacked** → select `chrome-extension/`.
-   - Click the reload icon on the extension card after editing files in `chrome-extension/`.
+   - Build the unified extension bundle:
+     ```bash
+     npm run build:extension
+     ```
+   - Open `chrome://extensions/`, enable **Developer mode**, and click **Load unpacked** → select `dist-extension/`.
+   - Re-run `npm run build:extension` and click the reload icon on the extension card after making changes.
 
 ---
 
 ## Checks Before Opening a Pull Request
 
-Run typechecking and verify a clean production build:
+Run typechecking and verify clean web + extension production builds:
 
 ```bash
 npm run lint
-npm run build
+npm run build:all
 ```
 
 ---

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Pebble — AI Study Tutor & Companion",
-  "version": "2.0.0",
-  "description": "Chrome Side Panel AI Study Tutor powered by Gemini with a virtual Study Companion pet that levels up as you summarize, quiz, and learn.",
+  "version": "2.1.0",
+  "description": "Chrome Side Panel AI Study Tutor supporting free & BYOK models (Gemini, OpenRouter, OpenAI, Claude, Ollama) with a virtual Study Companion pet.",
   "permissions": [
     "sidePanel",
     "activeTab",
@@ -12,7 +12,12 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://openrouter.ai/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "action": {
     "default_title": "Open Pebble Study Tutor"
