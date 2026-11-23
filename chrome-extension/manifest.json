@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Pebble — AI Study Tutor & Companion",
-  "version": "2.1.0",
-  "description": "Chrome Side Panel AI Study Tutor supporting free & BYOK models (Gemini, OpenRouter, OpenAI, Claude, Ollama) with a virtual Study Companion pet.",
+  "version": "2.2.0",
+  "description": "Chrome Side Panel AI Study Tutor supporting free & BYOK models (Gemini, OpenRouter, OpenAI, Claude, Ollama) with Socratic mode, LaTeX math, YouTube transcripts, screenshots, and a virtual Study Companion pet.",
   "permissions": [
     "sidePanel",
     "activeTab",
     "scripting",
     "storage",
     "alarms",
-    "notifications"
+    "notifications",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://generativelanguage.googleapis.com/*",

@@ -30,6 +30,7 @@ import {
   StudySource,
   StudyTipsData,
   ThemeMode,
+  TutorProfile,
   TutorTab,
   VocabEntry,
   VocabOrigin,
@@ -42,16 +43,22 @@ import {
   loadPetState,
   loadReminderSettings,
   loadTheme,
+  loadTutorProfile,
   saveAISettings,
   saveMuted,
   savePetState,
   saveReminderSettings,
   saveTheme,
+  saveTutorProfile,
 } from './utils/storage';
 import {
+  captureActiveTabScreenshot,
+  consumePendingSelectionAction,
   extractActiveBrowserTab,
   isChromeExtensionRuntime,
   recordExtensionCheckIn,
+  SelectionActionPayload,
+  subscribeToSelectionActions,
   syncExtensionReminderSettings,
   syncPetNameToExtensionStorage,
   triggerExtensionTestReminder,
@@ -87,6 +94,7 @@ import {
   fetchVocabDefinition,
   sendTutorChat,
   setActiveAISettings,
+  setActiveTutorProfile,
 } from './utils/tutorApi';
 import {
   createVocabEntry,
@@ -126,6 +134,11 @@ export default function App({ mode }: AppProps = {}) {
   const [aiSettings, setAiSettings] = useState<AIProviderSettings>(() => {
     const initial = loadAISettings(isExtensionMode);
     setActiveAISettings(initial);
+    return initial;
+  });
+  const [tutorProfile, setTutorProfile] = useState<TutorProfile>(() => {
+    const initial = loadTutorProfile();
+    setActiveTutorProfile(initial);
     return initial;
   });
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
@@ -236,6 +249,11 @@ export default function App({ mode }: AppProps = {}) {
     setActiveAISettings(aiSettings);
     saveAISettings(aiSettings);
   }, [aiSettings]);
+
+  useEffect(() => {
+    setActiveTutorProfile(tutorProfile);
+    saveTutorProfile(tutorProfile);
+  }, [tutorProfile]);
 
   useEffect(() => {
     if (!isExtensionMode) return;
@@ -577,12 +595,18 @@ export default function App({ mode }: AppProps = {}) {
       }
       resetGeneratedOutputs();
       setSource({
-        kind: 'page',
+        kind: result.kind,
         title: result.title,
+        url: result.url,
         text: result.text,
         wordCount: result.wordCount,
       });
-      triggerReaction('cheer', `Read "${result.title.slice(0, 32)}" — ready to summarize or quiz!`);
+      triggerReaction(
+        'cheer',
+        result.kind === 'youtube'
+          ? `Imported YouTube transcript (${result.wordCount} words) — ready to summarize or quiz!`
+          : `Read "${result.title.slice(0, 32)}" — ready to summarize or quiz!`
+      );
       return;
     }
 
@@ -630,6 +654,69 @@ export default function App({ mode }: AppProps = {}) {
     },
     [triggerReaction]
   );
+
+  const handleCaptureScreenshot = useCallback(async () => {
+    soundEngine.playUiClick();
+    setApiError(null);
+    const res = await captureActiveTabScreenshot();
+    if (!res.ok) {
+      setApiError(res.error);
+      return;
+    }
+    resetGeneratedOutputs();
+    setSource({
+      kind: 'image',
+      title: res.title,
+      url: res.url,
+      imageBase64: res.base64,
+      imageMimeType: res.mimeType,
+      imageDataUrl: res.dataUrl,
+      fileSizeLabel: formatFileSize(Math.round((res.base64.length * 3) / 4)),
+    });
+    triggerReaction('cheer', 'Captured tab screenshot! Ask Pebble about formulas, graphs, or diagrams.');
+  }, [triggerReaction]);
+
+  const handleLoadImage = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || '');
+        const base64 = dataUrl.split(',')[1] || '';
+        if (!base64) {
+          setApiError('Could not read the selected image.');
+          return;
+        }
+        soundEngine.playUiClick();
+        resetGeneratedOutputs();
+        setSource({
+          kind: 'image',
+          title: file.name || 'Pasted Screenshot',
+          imageBase64: base64,
+          imageMimeType: file.type || 'image/png',
+          imageDataUrl: dataUrl,
+          fileSizeLabel: formatFileSize(file.size),
+        });
+        triggerReaction('cheer', `Loaded visual "${file.name || 'Screenshot'}". Ask Pebble to break it down!`);
+      };
+      reader.readAsDataURL(file);
+    },
+    [triggerReaction]
+  );
+
+  // Support Ctrl/Cmd+V pasting screenshots anywhere in Pebble
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imgItem = items.find((item) => item.type.startsWith('image/'));
+      if (!imgItem) return;
+      const file = imgItem.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      handleLoadImage(file);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [handleLoadImage]);
 
   const handleLoadNotes = useCallback(
     (notes: string) => {
@@ -768,35 +855,45 @@ export default function App({ mode }: AppProps = {}) {
     setAnalyticsStore((prev) => recordStudyDelta(prev, { flashcards: 1, studyMinutes: 0.5 }));
   };
 
-  const handleSendChat = async (message: string) => {
-    if (!source) return;
-    setApiError(null);
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text: message };
-    const nextHistory = [...chatMessages, userMsg];
-    setChatMessages(nextHistory);
-    setChatLoading(true);
+  const handleSendChat = useCallback(
+    async (
+      message: string,
+      options?: { forceDirect?: boolean; sourceOverride?: StudySource }
+    ) => {
+      const activeSource = options?.sourceOverride ?? source;
+      if (!activeSource) return;
+      setApiError(null);
+      const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text: message };
+      const priorHistory = options?.sourceOverride ? [] : chatMessages;
+      const nextHistory = [...priorHistory, userMsg];
+      setChatMessages(nextHistory);
+      setChatLoading(true);
 
-    try {
-      const { reply } = await sendTutorChat(source, chatMessages, message);
-      setChatMessages((prev) => [
-        ...prev,
-        { id: `m-${Date.now()}`, role: 'model', text: reply },
-      ]);
-      soundEngine.playUiClick();
-      handlePetReward({
-        xp: 5,
-        mood: 4,
-        reaction: 'cheer',
-        caption: 'Great follow-up question! +5 XP.',
-      });
-      handleMissionEvent({ type: 'chat_asked' });
-      setAnalyticsStore((prev) => recordStudyDelta(prev, { studyMinutes: 1 }));
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Tutor chat request failed.');
-    } finally {
-      setChatLoading(false);
-    }
-  };
+      try {
+        const { reply } = await sendTutorChat(activeSource, priorHistory, message, {
+          forceDirect: options?.forceDirect,
+        });
+        setChatMessages((prev) => [
+          ...prev,
+          { id: `m-${Date.now()}`, role: 'model', text: reply },
+        ]);
+        soundEngine.playUiClick();
+        handlePetReward({
+          xp: 5,
+          mood: 4,
+          reaction: 'cheer',
+          caption: 'Great follow-up question! +5 XP.',
+        });
+        handleMissionEvent({ type: 'chat_asked' });
+        setAnalyticsStore((prev) => recordStudyDelta(prev, { studyMinutes: 1 }));
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Tutor chat request failed.');
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [chatMessages, handleMissionEvent, handlePetReward, source]
+  );
 
   const handleToggleMute = () => {
     setMuted((prev) => {
@@ -940,6 +1037,47 @@ export default function App({ mode }: AppProps = {}) {
     setVocabEntries((prev) => prev.filter((entry) => entry.id !== entryId));
   }, []);
 
+  const handleSelectionAction = useCallback(
+    (payload: SelectionActionPayload) => {
+      const snippet = payload.text.trim();
+      if (!snippet) return;
+
+      if (payload.kind === 'vocab') {
+        handleSaveVocabTerm(snippet.slice(0, 70), payload.pageTitle, 'manual');
+        setActiveTab('vocab');
+        setSidePanelOpen(true);
+        return;
+      }
+
+      const targetSource: StudySource =
+        source ?? {
+          kind: 'notes',
+          title: payload.pageTitle || 'Highlighted Passage',
+          url: payload.pageUrl,
+          text: snippet,
+          wordCount: snippet.split(/\s+/).filter(Boolean).length,
+        };
+
+      if (!source) {
+        setSource(targetSource);
+      }
+      setActiveTab('chat');
+      setSidePanelOpen(true);
+      void handleSendChat(`Help me understand this highlighted passage:\n"${snippet}"`, {
+        sourceOverride: source ? undefined : targetSource,
+      });
+    },
+    [handleSaveVocabTerm, handleSendChat, source]
+  );
+
+  useEffect(() => {
+    if (!isExtensionMode) return;
+    void consumePendingSelectionAction().then((pending) => {
+      if (pending) handleSelectionAction(pending);
+    });
+    return subscribeToSelectionActions(handleSelectionAction);
+  }, [handleSelectionAction, isExtensionMode]);
+
   const handleTogglePomodoro = useCallback(() => {
     soundEngine.playUiClick();
     setPomodoroNotice(null);
@@ -1032,6 +1170,24 @@ export default function App({ mode }: AppProps = {}) {
             soundEngine.playUiClick();
             setSidePanelOpen((v) => !v);
           }}
+          onAskSelection={(text, pageTitle) =>
+            handleSelectionAction({
+              kind: 'ask',
+              text,
+              pageTitle,
+              pageUrl: activePage.url,
+              createdAt: Date.now(),
+            })
+          }
+          onVocabSelection={(text, pageTitle) =>
+            handleSelectionAction({
+              kind: 'vocab',
+              text,
+              pageTitle,
+              pageUrl: activePage.url,
+              createdAt: Date.now(),
+            })
+          }
         />
       )}
 
@@ -1204,9 +1360,12 @@ export default function App({ mode }: AppProps = {}) {
               />
 
               <SourceReaderBar
+                isExtensionMode={isExtensionMode}
                 source={source}
                 onReadActivePage={handleReadActivePage}
+                onCaptureScreenshot={handleCaptureScreenshot}
                 onLoadPdf={handleLoadPdf}
+                onLoadImage={handleLoadImage}
                 onLoadNotes={handleLoadNotes}
                 onClearSource={() => {
                   setSource(null);
@@ -1302,8 +1461,10 @@ export default function App({ mode }: AppProps = {}) {
                 messages={chatMessages}
                 loading={chatLoading}
                 petName={pet.name}
+                tutorProfile={tutorProfile}
                 hasSummary={Boolean(summaryData)}
                 onSend={handleSendChat}
+                onUpdateTutorProfile={setTutorProfile}
                 onExportChat={handleExportChat}
                 onExportStudyPack={handleExportStudyPack}
                 onSaveVocabTerm={(term, ctx) => handleSaveVocabTerm(term, ctx, 'chat')}

@@ -2,6 +2,15 @@ export type TutorTab = 'summary' | 'quiz' | 'tips' | 'chat' | 'vocab' | 'analyti
 
 export type ThemeMode = 'light' | 'dark';
 
+export type LearnerLevel = 'high_school' | 'undergrad' | 'grad';
+
+export type TutorStyle = 'socratic' | 'direct';
+
+export interface TutorProfile {
+  learnerLevel: LearnerLevel;
+  tutorStyle: TutorStyle;
+}
+
 export interface ReminderSettings {
   enabled: boolean;
   intervalHours: number;
@@ -113,13 +122,17 @@ export type MissionEvent =
   | { type: 'pet_pat' };
 
 export interface StudySource {
-  kind: 'page' | 'pdf' | 'notes';
+  kind: 'page' | 'pdf' | 'notes' | 'image' | 'youtube';
   title: string;
+  url?: string;
   wordCount?: number;
   fileSizeLabel?: string;
   text?: string;
   pdfBase64?: string;
   pdfName?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+  imageDataUrl?: string;
 }
 
 export interface LectureSummaryData {

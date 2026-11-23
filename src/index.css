@@ -46,3 +46,18 @@
     animation: none !important;
   }
 }
+
+.pebble-markdown .katex {
+  font-size: 1.02em;
+}
+
+.pebble-markdown .katex-display {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.pebble-markdown-inline {
+  display: inline;
+}

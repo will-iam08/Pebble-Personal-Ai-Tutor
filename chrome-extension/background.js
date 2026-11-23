@@ -10,7 +10,11 @@ const STORAGE_KEYS = {
   LAST_OPENED_AT: 'pebble_last_opened_at',
   LAST_NOTIFIED_AT: 'pebble_last_notified_at',
   PET: 'pebble_study_pet',
+  PENDING_SELECTION: 'pebble_pending_selection_action',
 };
+
+const CONTEXT_MENU_ASK = 'pebble_ask_selection';
+const CONTEXT_MENU_VOCAB = 'pebble_define_selection';
 
 const DEFAULT_REMINDER_SETTINGS = {
   enabled: true,
@@ -128,6 +132,21 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   }
 
+  if (chrome.contextMenus) {
+    chrome.contextMenus.removeAll(() => {
+      chrome.contextMenus.create({
+        id: CONTEXT_MENU_ASK,
+        title: 'Ask Pebble about "%s"',
+        contexts: ['selection'],
+      });
+      chrome.contextMenus.create({
+        id: CONTEXT_MENU_VOCAB,
+        title: 'Save "%s" to Pebble Vocab',
+        contexts: ['selection'],
+      });
+    });
+  }
+
   const existing = await chrome.storage.local.get([
     STORAGE_KEYS.REMINDER_SETTINGS,
     STORAGE_KEYS.LAST_OPENED_AT,
@@ -177,6 +196,39 @@ chrome.notifications.onClicked.addListener(async (notificationId) => {
   }
 });
 
+// Highlight-to-Ask & Vocab Context Menu Handler
+if (chrome.contextMenus && chrome.contextMenus.onClicked) {
+  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId !== CONTEXT_MENU_ASK && info.menuItemId !== CONTEXT_MENU_VOCAB) {
+      return;
+    }
+    const selectionText = (info.selectionText || '').trim();
+    if (!selectionText) return;
+
+    const payload = {
+      kind: info.menuItemId === CONTEXT_MENU_VOCAB ? 'vocab' : 'ask',
+      text: selectionText.slice(0, 2400),
+      pageTitle: tab?.title || 'Highlighted Passage',
+      pageUrl: tab?.url || '',
+      createdAt: Date.now(),
+    };
+
+    await chrome.storage.local.set({ [STORAGE_KEYS.PENDING_SELECTION]: payload });
+
+    try {
+      if (tab?.windowId && chrome.sidePanel && chrome.sidePanel.open) {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+      }
+    } catch {
+      // Ignore if side panel is already open or window unavailable
+    }
+
+    chrome.runtime.sendMessage({ type: 'PEBBLE_SELECTION_ACTION', payload }, () => {
+      void chrome.runtime.lastError;
+    });
+  });
+}
+
 // Message router for Side Panel actions
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'RECORD_CHECKIN') {
@@ -210,6 +262,45 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })().catch((err) =>
       sendResponse({ ok: false, error: err?.message || 'Could not display test notification.' })
     );
+    return true;
+  }
+
+  if (message?.type === 'CAPTURE_VISIBLE_TAB') {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id) {
+          sendResponse({ ok: false, error: 'No active browser tab found to capture.' });
+          return;
+        }
+        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+          sendResponse({
+            ok: false,
+            error: 'Cannot screenshot Chrome system pages. Open an article, textbook, or diagram tab first.',
+          });
+          return;
+        }
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+        const base64 = dataUrl.split(',')[1] || '';
+        if (!base64) {
+          sendResponse({ ok: false, error: 'Failed to encode tab screenshot.' });
+          return;
+        }
+        sendResponse({
+          ok: true,
+          title: `Screenshot: ${tab.title || 'Active Tab'}`,
+          url: tab.url,
+          dataUrl,
+          base64,
+          mimeType: 'image/png',
+        });
+      } catch (err) {
+        sendResponse({
+          ok: false,
+          error: err instanceof Error ? err.message : 'Failed to capture tab screenshot.',
+        });
+      }
+    })();
     return true;
   }
 

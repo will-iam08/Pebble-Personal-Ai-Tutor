@@ -4,13 +4,26 @@ import {
   createDefaultAISettings,
   PROVIDER_CATALOG,
 } from '../types/ai';
-import { PetState, ReminderSettings, ThemeMode } from '../types/study';
+import {
+  LearnerLevel,
+  PetState,
+  ReminderSettings,
+  ThemeMode,
+  TutorProfile,
+  TutorStyle,
+} from '../types/study';
 
 const PET_KEY = 'pebble_study_pet_v2';
 const MUTE_KEY = 'pebble_study_muted_v2';
 const THEME_KEY = 'pebble_study_theme_v2';
 const REMINDER_KEY = 'pebble_reminder_settings_v2';
 const AI_SETTINGS_KEY = 'pebble_ai_provider_settings_v1';
+const TUTOR_PROFILE_KEY = 'pebble_tutor_profile_v1';
+
+export const DEFAULT_TUTOR_PROFILE: TutorProfile = {
+  learnerLevel: 'undergrad',
+  tutorStyle: 'socratic',
+};
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -165,5 +178,36 @@ export function saveAISettings(settings: AIProviderSettings): void {
     localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
   } catch {
     // Ignore storage quota errors
+  }
+}
+
+const VALID_LEVELS = new Set<LearnerLevel>(['high_school', 'undergrad', 'grad']);
+const VALID_STYLES = new Set<TutorStyle>(['socratic', 'direct']);
+
+export function loadTutorProfile(): TutorProfile {
+  try {
+    const raw = localStorage.getItem(TUTOR_PROFILE_KEY);
+    if (!raw) return { ...DEFAULT_TUTOR_PROFILE };
+    const parsed = JSON.parse(raw) as Partial<TutorProfile>;
+    return {
+      learnerLevel:
+        parsed.learnerLevel && VALID_LEVELS.has(parsed.learnerLevel)
+          ? parsed.learnerLevel
+          : DEFAULT_TUTOR_PROFILE.learnerLevel,
+      tutorStyle:
+        parsed.tutorStyle && VALID_STYLES.has(parsed.tutorStyle)
+          ? parsed.tutorStyle
+          : DEFAULT_TUTOR_PROFILE.tutorStyle,
+    };
+  } catch {
+    return { ...DEFAULT_TUTOR_PROFILE };
+  }
+}
+
+export function saveTutorProfile(profile: TutorProfile): void {
+  try {
+    localStorage.setItem(TUTOR_PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    // Ignore
   }
 }

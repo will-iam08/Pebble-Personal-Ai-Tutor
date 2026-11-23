@@ -1,5 +1,5 @@
-import React from 'react';
-import { Lock, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookmarkPlus, Lock, MessageSquare, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { SAMPLE_BROWSER_PAGES, SampleBrowserPage } from '../data/samplePages';
 
 interface BrowserStudyPaneProps {
@@ -9,6 +9,8 @@ interface BrowserStudyPaneProps {
   justExtracted: boolean;
   onSelectPage: (page: SampleBrowserPage) => void;
   onToggleSidePanel: () => void;
+  onAskSelection?: (text: string, pageTitle: string) => void;
+  onVocabSelection?: (text: string, pageTitle: string) => void;
 }
 
 export const BrowserStudyPane: React.FC<BrowserStudyPaneProps> = ({
@@ -18,7 +20,19 @@ export const BrowserStudyPane: React.FC<BrowserStudyPaneProps> = ({
   justExtracted,
   onSelectPage,
   onToggleSidePanel,
+  onAskSelection,
+  onVocabSelection,
 }) => {
+  const [selectedSnippet, setSelectedSnippet] = useState('');
+
+  const handleMouseUp = () => {
+    const raw = window.getSelection?.()?.toString().trim() || '';
+    if (raw.length >= 3 && raw.length <= 1200) {
+      setSelectedSnippet(raw);
+    } else {
+      setSelectedSnippet('');
+    }
+  };
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col bg-[#F6F7F9] dark:bg-[#11171C] overflow-hidden">
       {/* Realistic Chrome Tab Strip & Address Bar */}
@@ -68,9 +82,48 @@ export const BrowserStudyPane: React.FC<BrowserStudyPaneProps> = ({
       </div>
 
       {/* Main Academic Article Surface (Extracted when user clicks "Read Active Page") */}
-      <div className="flex-1 overflow-y-auto px-6 sm:px-10 lg:px-14 py-8">
+      <div className="flex-1 overflow-y-auto px-6 sm:px-10 lg:px-14 py-8 relative">
+        {selectedSnippet && (onAskSelection || onVocabSelection) && (
+          <div className="sticky top-2 z-20 max-w-2xl mx-auto mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#182127] dark:bg-[#233039] text-white shadow-lg border border-[#324451] text-xs animate-panel-enter">
+            <span className="truncate text-[#C7D3DC] max-w-[260px]">
+              “{selectedSnippet}”
+            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {onAskSelection && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAskSelection(selectedSnippet, activePage.title);
+                    setSelectedSnippet('');
+                    window.getSelection?.()?.removeAllRanges();
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#E86A33] hover:bg-[#D95C26] text-white font-semibold text-[11px] cursor-pointer"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  <span>Ask Pebble</span>
+                </button>
+              )}
+              {onVocabSelection && selectedSnippet.length <= 64 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onVocabSelection(selectedSnippet, activePage.title);
+                    setSelectedSnippet('');
+                    window.getSelection?.()?.removeAllRanges();
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#2E404D] hover:bg-[#3A5060] text-white font-semibold text-[11px] cursor-pointer"
+                >
+                  <BookmarkPlus className="w-3 h-3 text-[#65C99A]" />
+                  <span>+ Vocab</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <article
           ref={articleRef}
+          onMouseUp={handleMouseUp}
           className={`max-w-2xl mx-auto rounded-2xl bg-white dark:bg-[#161E24] border p-6 sm:p-8 transition-colors duration-200 ${
             justExtracted
               ? 'border-[#3D9E71] dark:border-[#52B788]'

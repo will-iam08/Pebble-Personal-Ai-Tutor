@@ -3,6 +3,7 @@ import { AlertTriangle, BookmarkPlus, BookOpen, Check, Download, RefreshCw } fro
 import { LectureSummaryData, StudySource } from '../types/study';
 import { ExportFormat } from '../utils/exportStudy';
 import { normalizeTermKey } from '../utils/vocab';
+import { AcademicMarkdown } from './AcademicMarkdown';
 
 interface SummaryTabProps {
   source: StudySource | null;
@@ -138,9 +139,10 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
                 {summary.difficulty}
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-[#2C3740] dark:text-[#D5DDE3]">
-              {summary.tldr}
-            </p>
+            <AcademicMarkdown
+              content={summary.tldr}
+              className="text-xs leading-relaxed text-[#2C3740] dark:text-[#D5DDE3]"
+            />
           </article>
 
           {/* Key Concepts */}
@@ -184,9 +186,10 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
                           </button>
                         )}
                       </div>
-                      <p className="text-xs text-[#45535E] dark:text-[#B5C1C9] mt-0.5 leading-relaxed">
-                        {item.explanation}
-                      </p>
+                      <AcademicMarkdown
+                        content={item.explanation}
+                        className="text-xs text-[#45535E] dark:text-[#B5C1C9] mt-0.5 leading-relaxed"
+                      />
                     </div>
                   );
                 })}
@@ -235,12 +238,13 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
                           </button>
                         )}
                       </div>
-                      <div className="font-mono text-[11.5px] px-3 py-2 rounded-lg bg-[#F2F5F8] dark:bg-[#11171C] border border-[#E2E8EE] dark:border-[#26343E] text-[#1D3B2E] dark:text-[#8FD8B5] overflow-x-auto">
-                        {f.expression}
+                      <div className="text-[12px] px-3 py-2 rounded-lg bg-[#F2F5F8] dark:bg-[#11171C] border border-[#E2E8EE] dark:border-[#26343E] text-[#1D3B2E] dark:text-[#8FD8B5] overflow-x-auto">
+                        <AcademicMarkdown content={f.expression} />
                       </div>
-                      <p className="text-[11.5px] text-[#5C6B77] dark:text-[#9AA8B2] leading-relaxed">
-                        {f.meaning}
-                      </p>
+                      <AcademicMarkdown
+                        content={f.meaning}
+                        className="text-[11.5px] text-[#5C6B77] dark:text-[#9AA8B2] leading-relaxed"
+                      />
                     </div>
                   );
                 })}
@@ -258,10 +262,14 @@ export const SummaryTab: React.FC<SummaryTabProps> = ({
               <div className="flex flex-col gap-2.5">
                 {summary.examTraps.map((trap, idx) => (
                   <div key={idx} className="text-xs leading-relaxed">
-                    <p className="font-semibold text-[#182026] dark:text-[#F1F3F5]">{trap.trap}</p>
-                    <p className="text-[#5C6B77] dark:text-[#B8C2C9] mt-0.5">
-                      How to avoid: {trap.howToAvoid}
-                    </p>
+                    <AcademicMarkdown
+                      content={trap.trap}
+                      className="font-semibold text-[#182026] dark:text-[#F1F3F5]"
+                    />
+                    <AcademicMarkdown
+                      content={`**How to avoid:** ${trap.howToAvoid}`}
+                      className="text-[#5C6B77] dark:text-[#B8C2C9] mt-0.5"
+                    />
                   </div>
                 ))}
               </div>

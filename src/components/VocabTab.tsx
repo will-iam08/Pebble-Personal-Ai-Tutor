@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { BookMarked, Check, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { VocabEntry, VocabOrigin } from '../types/study';
+import { AcademicMarkdown } from './AcademicMarkdown';
 
 interface VocabTabProps {
   entries: VocabEntry[];
@@ -249,16 +250,15 @@ export const VocabTab: React.FC<VocabTabProps> = ({
                 {/* Definition Output or Pending Prompt */}
                 {entry.simpleDefinition ? (
                   <div className="flex flex-col gap-1.5 pt-1.5 border-t border-[#ECEFF2] dark:border-[#24313A] text-xs">
-                    <p className="text-[#182026] dark:text-[#E8EDF1] leading-relaxed">
-                      {entry.simpleDefinition}
-                    </p>
+                    <AcademicMarkdown
+                      content={entry.simpleDefinition}
+                      className="text-[#182026] dark:text-[#E8EDF1] leading-relaxed"
+                    />
                     {entry.analogyOrExample && (
-                      <p className="text-[11.5px] text-[#45535E] dark:text-[#B5C1C9] leading-relaxed">
-                        <span className="font-semibold text-[#182026] dark:text-[#DCE3E8]">
-                          Example:{' '}
-                        </span>
-                        {entry.analogyOrExample}
-                      </p>
+                      <AcademicMarkdown
+                        content={`**Example:** ${entry.analogyOrExample}`}
+                        className="text-[11.5px] text-[#45535E] dark:text-[#B5C1C9] leading-relaxed"
+                      />
                     )}
                     {entry.memoryCue && (
                       <p className="text-[11px] text-[#2F8F63] dark:text-[#65C99A] font-medium">
