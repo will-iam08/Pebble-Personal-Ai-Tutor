@@ -8,21 +8,14 @@ import { GoogleGenAI, Type } from '@google/genai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MODEL = 'gemini-4-hydrogen';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured in the server environment.');
   }
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+  return new GoogleGenAI({ apiKey });
 }
 
 interface SourceInput {
@@ -76,7 +69,7 @@ function getErrorStatusAndMessage(err: unknown): { status: number; message: stri
   const message = err instanceof Error ? err.message : 'Unexpected server error calling Gemini API.';
   const lower = message.toLowerCase();
   if (lower.includes('api_key') || lower.includes('permission_denied') || lower.includes('not configured')) {
-    return { status: 400, message: `${message} Check Settings > Secrets in AI Studio.` };
+    return { status: 400, message: `${message} Check GEMINI_API_KEY in your .env file.` };
   }
   if (lower.includes('429') || lower.includes('resource_exhausted')) {
     return { status: 429, message: 'Rate limit reached on Gemini API. Please wait a moment and try again.' };

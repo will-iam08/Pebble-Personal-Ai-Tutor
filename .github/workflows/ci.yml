@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck-and-build:
+    name: Typecheck & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Validate Chrome Extension manifest JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('chrome-extension/manifest.json', 'utf8')); console.log('manifest.json is valid JSON');"
