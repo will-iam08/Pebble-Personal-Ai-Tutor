@@ -30,8 +30,9 @@
     "build": "vite build",
     "build:extension": "vite build --config vite.extension.config.ts",
     "build:all": "npm run build && npm run build:extension",
+    "package:extension": "npm run build:extension && node scripts/package-extension.mjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist dist-extension server.js",
+    "clean": "rm -rf dist dist-extension release server.js",
     "lint": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },

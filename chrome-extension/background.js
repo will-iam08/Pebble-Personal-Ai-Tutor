@@ -21,10 +21,6 @@ const DEFAULT_REMINDER_SETTINGS = {
   intervalHours: 6,
 };
 
-// Valid 48x48 PNG icon for Chrome desktop notifications (Pebble sprout companion)
-const NOTIFICATION_ICON_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABaUlEQVR4nN3YsRGCQBCFYcog1EQLsBPLMLYIm7AOO7AFGzBwbAKHAIdR7u7t7ttjIdhEz+P/BGeQpt3umyUPe8MOnFAANNoFM2c4BRIh3ASJFK6CRI2HEZHjIUT0+CJiCfFZxFLikwgq4Hi7JN8736/JYQNEwaXJhSshHAA7XoDIAmjxjoButQDqte8M6EwAL4SwwQZAEcNaYvgkQLvJH+j3tffzQdk7haAC+lh0wgAk0Q4YG4ARb0ToAcx4A0IH8IhXIuQAz3gFQgaoES9EcAHtZofFAeuqA/qoYSjrhAAIgUTl4tB1IEB2L4RcFswzACDkN3PjzV+nw3csv4GpfbRnAD4L44NOHRyd3D5I/CoBWUTpErIiwEvI9lTCEosO+u2rH2xFiTc9mZshXgSojtDElwDVENp4BOB2qy3YN9uHAMz/mQ2fL7ahABPCK14KqAUR9WgAXhBVhwXAgpiOzwBoMLRjsgHV5wNfY41VhlM1sAAAAABJRU5ErkJggg==';
-
 function clampIntervalHours(hours) {
   const num = Number(hours);
   if (!Number.isFinite(num)) return DEFAULT_REMINDER_SETTINGS.intervalHours;
@@ -94,7 +90,7 @@ async function showCheckInNotification(petName, intervalHours, isTest = false) {
 
   await chrome.notifications.create(NOTIFICATION_ID, {
     type: 'basic',
-    iconUrl: NOTIFICATION_ICON_DATA_URL,
+    iconUrl: chrome.runtime.getURL('icons/icon48.png'),
     title: `Check in with ${petName}`,
     message: body,
     priority: 0,

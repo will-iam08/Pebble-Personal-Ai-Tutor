@@ -26,6 +26,12 @@ export default defineConfig({
             fs.copyFileSync(from, to);
           }
         }
+
+        const srcIconsDir = path.join(srcExtDir, 'icons');
+        const outIconsDir = path.join(outDir, 'icons');
+        if (fs.existsSync(srcIconsDir)) {
+          fs.cpSync(srcIconsDir, outIconsDir, { recursive: true, force: true });
+        }
       },
     },
   ],
