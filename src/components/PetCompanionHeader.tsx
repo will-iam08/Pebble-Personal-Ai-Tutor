@@ -131,12 +131,12 @@ export const PetCompanionHeader: React.FC<PetCompanionHeaderProps> = ({
         />
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline justify-between gap-1.5">
             <div className="flex items-baseline gap-1.5 min-w-0">
-              <h2 className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] truncate">
+              <h2 className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] whitespace-nowrap shrink-0">
                 {pet.name}
               </h2>
-              <span className="text-[11px] text-[#5C6B77] dark:text-[#96A5B0] whitespace-nowrap">
+              <span className="text-[11px] text-[#5C6B77] dark:text-[#96A5B0] truncate">
                 {stage} · <span className="font-mono tabular-nums">Lv.{pet.level}</span>
               </span>
             </div>

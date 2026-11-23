@@ -603,17 +603,53 @@ export default function App({ mode }: AppProps = {}) {
         return;
       }
       resetGeneratedOutputs();
+
+      if (result.kind === 'pdf' && result.pdfBase64) {
+        setSource({
+          kind: 'pdf',
+          title: result.title,
+          url: result.url,
+          pdfBase64: result.pdfBase64,
+          pdfName: result.pdfName || 'lecture.pdf',
+          fileSizeLabel: result.fileSizeBytes ? formatFileSize(result.fileSizeBytes) : 'PDF',
+          text: result.text,
+          wordCount: result.wordCount,
+        });
+        triggerReaction(
+          'cheer',
+          `Loaded embedded PDF "${result.title.slice(0, 32)}" — ready to summarize, quiz, or ask about handwritten notes!`
+        );
+        return;
+      }
+
+      if (result.kind === 'image' && result.base64 && result.dataUrl) {
+        setSource({
+          kind: 'image',
+          title: result.title,
+          url: result.url,
+          imageBase64: result.base64,
+          imageMimeType: result.mimeType || 'image/png',
+          imageDataUrl: result.dataUrl,
+          fileSizeLabel: formatFileSize(Math.round((result.base64.length * 3) / 4)),
+        });
+        triggerReaction(
+          'cheer',
+          `Captured visual slide snapshot from "${result.title.slice(0, 28)}" — ready to study!`
+        );
+        return;
+      }
+
       setSource({
-        kind: result.kind,
+        kind: result.kind === 'youtube' ? 'youtube' : 'page',
         title: result.title,
         url: result.url,
-        text: result.text,
+        text: result.text || '',
         wordCount: result.wordCount,
       });
       triggerReaction(
         'cheer',
         result.kind === 'youtube'
-          ? `Imported YouTube transcript (${result.wordCount} words) — ready to summarize or quiz!`
+          ? `Imported YouTube transcript (${result.wordCount ?? 0} words) — ready to summarize or quiz!`
           : `Read "${result.title.slice(0, 32)}" — ready to summarize or quiz!`
       );
       return;
@@ -1336,10 +1372,10 @@ export default function App({ mode }: AppProps = {}) {
               </div>
             </header>
           ) : (
-            <header className="flex items-center justify-between gap-2 px-4 py-2.5 bg-white dark:bg-[#182127] border-b border-[#DFE5EB] dark:border-[#293741] shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <header className="flex items-center justify-between gap-1.5 px-3 py-2.5 bg-white dark:bg-[#182127] border-b border-[#DFE5EB] dark:border-[#293741] shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <PebbleIcon className="w-5 h-5 shrink-0" />
-                <span className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] truncate">
+                <span className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] whitespace-nowrap shrink-0">
                   Pebble
                 </span>
                 <button
@@ -1349,30 +1385,30 @@ export default function App({ mode }: AppProps = {}) {
                     setSettingsOpen(true);
                   }}
                   title={`Active AI: ${activeProviderMeta.name} (${activeModelLabel}). Click to change provider or API key.`}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors whitespace-nowrap truncate max-w-[125px] cursor-pointer ${
                     providerConfigured
                       ? 'bg-[#EFF3F6] dark:bg-[#22303A] border-[#DCE2E8] dark:border-[#324552] text-[#45535E] dark:text-[#B5C1C9] hover:border-[#E86A33]'
                       : 'bg-[#FFF4EE] dark:bg-[#2B1F19] border-[#E86A33]/60 text-[#C44D1B] dark:text-[#F49A71]'
                   }`}
                 >
                   <Cpu className="w-3 h-3 shrink-0" />
-                  <span>
-                    {providerConfigured ? activeProviderMeta.shortName : 'Setup AI Key'}
+                  <span className="truncate">
+                    {providerConfigured ? activeProviderMeta.shortName : 'AI Key'}
                   </span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleToggleFocusMode}
                   aria-pressed={focusMode}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#45535E] dark:text-[#B5C1C9] hover:bg-[#EFF3F6] dark:hover:bg-[#233039] hover:text-[#182026] dark:hover:text-[#F1F3F5] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11px] font-semibold text-[#45535E] dark:text-[#B5C1C9] hover:bg-[#EFF3F6] dark:hover:bg-[#233039] hover:text-[#182026] dark:hover:text-[#F1F3F5] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   aria-label="Enable Focus Mode"
                   title="Focus Mode — minimize pet and navigation"
                 >
                   <Maximize2 className="w-3.5 h-3.5 text-[#3D9E71] dark:text-[#52B788]" />
-                  <span>Focus</span>
+                  <span className="hidden sm:inline">Focus</span>
                 </button>
 
                 <button
