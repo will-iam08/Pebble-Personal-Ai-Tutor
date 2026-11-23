@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -423,30 +422,6 @@ async function createServer() {
     } catch (err) {
       const { status, message } = getErrorStatusAndMessage(err);
       res.status(status).json({ error: message });
-    }
-  });
-
-  // 6. Serve the real Chrome Extension Manifest V3 source files for inspection/download
-  app.get('/api/extension/files', (_req, res) => {
-    try {
-      const extDir = path.resolve(__dirname, 'chrome-extension');
-      const orderedNames = [
-        'manifest.json',
-        'background.js',
-        'content.js',
-        'sidepanel.html',
-        'sidepanel.css',
-        'sidepanel.js',
-      ];
-      const files = orderedNames
-        .filter((name) => fs.existsSync(path.join(extDir, name)))
-        .map((name) => ({
-          name,
-          content: fs.readFileSync(path.join(extDir, name), 'utf-8'),
-        }));
-      res.json({ files });
-    } catch {
-      res.status(500).json({ error: 'Unable to load Chrome Extension MV3 files.' });
     }
   });
 

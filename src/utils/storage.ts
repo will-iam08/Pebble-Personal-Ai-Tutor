@@ -1,9 +1,16 @@
+import {
+  AIProviderId,
+  AIProviderSettings,
+  createDefaultAISettings,
+  PROVIDER_CATALOG,
+} from '../types/ai';
 import { PetState, ReminderSettings, ThemeMode } from '../types/study';
 
 const PET_KEY = 'pebble_study_pet_v2';
 const MUTE_KEY = 'pebble_study_muted_v2';
 const THEME_KEY = 'pebble_study_theme_v2';
 const REMINDER_KEY = 'pebble_reminder_settings_v2';
+const AI_SETTINGS_KEY = 'pebble_ai_provider_settings_v1';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -112,5 +119,51 @@ export function saveReminderSettings(settings: ReminderSettings): void {
     localStorage.setItem(REMINDER_KEY, JSON.stringify(settings));
   } catch {
     // Ignore
+  }
+}
+
+const VALID_PROVIDERS = new Set<AIProviderId>(PROVIDER_CATALOG.map((p) => p.id));
+
+export function loadAISettings(isExtension: boolean): AIProviderSettings {
+  const defaults = createDefaultAISettings(isExtension);
+  try {
+    const raw = localStorage.getItem(AI_SETTINGS_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<AIProviderSettings>;
+
+    let provider: AIProviderId =
+      parsed.provider && VALID_PROVIDERS.has(parsed.provider)
+        ? parsed.provider
+        : defaults.provider;
+
+    // Local Express server mode is only available in web mode
+    if (isExtension && provider === 'server') {
+      provider = 'gemini';
+    }
+
+    return {
+      provider,
+      models: {
+        ...defaults.models,
+        ...(parsed.models || {}),
+      },
+      apiKeys: {
+        ...(parsed.apiKeys || {}),
+      },
+      ollamaBaseUrl:
+        typeof parsed.ollamaBaseUrl === 'string' && parsed.ollamaBaseUrl.trim()
+          ? parsed.ollamaBaseUrl.trim()
+          : defaults.ollamaBaseUrl,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function saveAISettings(settings: AIProviderSettings): void {
+  try {
+    localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // Ignore storage quota errors
   }
 }

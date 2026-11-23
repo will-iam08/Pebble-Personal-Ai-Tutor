@@ -9,7 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-React%2019-3178C6?logo=typescript&logoColor=white)](./package.json)
 [![CI](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/actions/workflows/ci.yml/badge.svg)](https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/actions/workflows/ci.yml)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Contributing](#-contributing)
+[Features](#-features) • [Supported AI Models](#-supported-ai-models) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Contributing](#-contributing)
 
 </div>
 
@@ -25,7 +25,7 @@ Pebble turns any webpage, lecture PDF, or set of class notes into an interactive
 
 ### Multi-Source Study Reader
 - **Active Tab Extraction:** Pulls clean article/textbook content from your current Chrome tab while stripping navigation, ads, and boilerplate.
-- **PDF & Notes Support:** Upload lecture slide PDFs directly or paste raw study notes.
+- **PDF & Notes Support:** Upload lecture slide PDFs directly (native PDF reading on Gemini & Claude) or paste raw study notes.
 - **Web Sandbox Mode:** Includes a built-in simulated Chrome browser with sample university course readings for local development and testing.
 
 ### AI Academic Study Tools
@@ -37,29 +37,35 @@ Pebble turns any webpage, lecture PDF, or set of class notes into an interactive
 - **Study Exports:** Download summaries, tutor chats, or combined study packs as Markdown (`.md`) or plain text (`.txt`).
 
 ### Virtual Companion & Focus Tools
-- **Study Companion Pet:** Earn XP and Study Treats as you study. Evolve Pebble through 4 stages (**Seedling → Sproutling → Leafkin → Scholar**), unlock accessories, and keep Pebble fed and happy.
+- **Study Companion Pet:** Earn XP and Study Treats as you study. Evolve Pebble through 4 stages (**Seedling → Sproutling → Leafkin → Scholar**), unlock accessories on the interactive pet habitat canvas, and keep Pebble fed and happy.
 - **Pomodoro Timer & Focus Mode:** Built-in focus/break timer with sound effects, light/dark themes, and distraction-free focus view.
 - **Daily Missions, Streaks & Analytics:** Track 7-day study time, quiz accuracy charts, daily streaks, and unlockable achievements.
-- **Gentle Check-In Reminders:** Optional Chrome desktop notifications to nudge you back for short review sessions.
+- **Gentle Check-In Reminders:** Optional Chrome desktop notifications via `chrome.alarms` & `chrome.notifications`.
+
+---
+
+## Supported AI Models
+
+Pebble is **Bring Your Own Key (BYOK)** — your API keys stay strictly in local browser storage and requests go directly from your browser to your chosen provider.
+
+| Provider | Cost / Tier | Native PDF Upload | Highlights |
+| :--- | :--- | :---: | :--- |
+| **Google Gemini** | Free tier available | Yes | Default `gemini-2.5-flash` via [Google AI Studio](https://aistudio.google.com/apikey) |
+| **OpenRouter** | Free (`:free`) & paid models | No | Access `openrouter/free`, Llama 3.3, DeepSeek R1, Gemma 3, Claude, GPT |
+| **Ollama / LM Studio** | 100% Free & Local | No | Private on-device models with one-click local model discovery |
+| **OpenAI** | BYOK API key | No | `gpt-4o-mini`, `gpt-4o`, `o4-mini`, or custom model ID |
+| **Anthropic Claude** | BYOK API key | Yes | Direct browser access with `claude-sonnet-4` & `claude-3-5-haiku` |
+| **Local Server (`.env`)** | Web dev mode | Yes | Uses `server.ts` + `GEMINI_API_KEY` for local web sandbox development |
+
+> **Tip for Ollama in Chrome:** Start Ollama with `OLLAMA_ORIGINS="*"` so Chrome extensions can reach `http://localhost:11434/v1`.
 
 ---
 
 ## Quick Start
 
-### Option 1: Load the Chrome Side Panel Extension (Unpacked)
+### Option 1: Build & Load the Unified Chrome Side Panel Extension
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/will-iam08/Pebble-Personal-Ai-Tutor.git
-   ```
-2. Open Chrome and navigate to `chrome://extensions/`.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the `chrome-extension/` folder.
-5. Click the **Pebble** toolbar icon to open the Side Panel, open **Settings**, and paste your Gemini API key (free tier available via [Google AI Studio](https://aistudio.google.com/apikey)).
-
-### Option 2: Run the Full-Stack Web App Locally
-
-**Prerequisites:** Node.js 20+ and a Gemini API key.
+**Prerequisites:** Node.js 20+.
 
 ```bash
 # 1. Clone and install dependencies
@@ -67,22 +73,35 @@ git clone https://github.com/will-iam08/Pebble-Personal-Ai-Tutor.git
 cd Pebble-Personal-Ai-Tutor
 npm install
 
-# 2. Configure environment variables
-cp .env.example .env
-# Edit .env and set your GEMINI_API_KEY
+# 2. Build the unified React Chrome Extension into dist-extension/
+npm run build:extension
+```
 
-# 3. Start the dev server (Express API + Vite React app)
+3. Open Chrome and navigate to `chrome://extensions/`.
+4. Enable **Developer mode** (top-right toggle).
+5. Click **Load unpacked** and select the **`dist-extension/`** folder.
+6. Click the **Pebble** toolbar icon to open the Side Panel, click **Setup AI Key** (or the gear icon), pick a free or BYOK provider (Gemini free tier, OpenRouter, or local Ollama), and click **Test Connection**.
+
+### Option 2: Run the Web Workspace Locally
+
+```bash
+# Optional: configure server-side Gemini key for "Local Server (.env)" mode
+cp .env.example .env
+
+# Start the Express + Vite dev server (http://localhost:3000)
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+You can also switch directly to any BYOK provider (Gemini, OpenRouter, Ollama, OpenAI, Claude) inside Settings even when running the web workspace.
 
 #### Available Scripts
 
 | Command | Description |
 | :--- | :--- |
 | `npm run dev` | Start Express + Vite dev server (`http://localhost:3000`) |
-| `npm run build` | Build the production React frontend to `dist/` |
+| `npm run build` | Build the production web app to `dist/` |
+| `npm run build:extension` | Build the unified React Chrome Extension (MV3) to `dist-extension/` |
+| `npm run build:all` | Build both web (`dist/`) and Chrome extension (`dist-extension/`) |
 | `npm run lint` | Run TypeScript typechecking (`tsc --noEmit`) |
 | `npm start` | Run the server in production mode |
 
@@ -90,36 +109,37 @@ Open `http://localhost:3000` in your browser.
 
 ## Architecture
 
+One shared React + TypeScript UI compiles cleanly to **both** the Chrome Side Panel extension (`dist-extension/`) and the standalone web sandbox (`dist/`):
+
 ```text
 Pebble-Personal-Ai-Tutor/
-├── chrome-extension/       # Manifest V3 Chrome Side Panel extension
-│   ├── manifest.json       # MV3 permissions, side panel & service worker config
-│   ├── background.js       # Tab extraction bridge + gentle check-in alarms
-│   ├── content.js          # Clean DOM text extractor for active web pages
-│   └── sidepanel.*         # Side panel UI & direct Gemini API integration
-├── src/                    # React 19 + TypeScript + Tailwind v4 web workspace
-│   ├── components/         # Summary, Quiz, Tips, Chat, Vocab, Analytics, Pet Habitat
-│   ├── utils/              # API client, missions, analytics, achievements, exports, audio
-│   └── types/              # Shared study, pet, and quiz TypeScript models
-├── server.ts               # Express API proxy (/api/tutor/*) + Vite middleware
-└── .github/                # CI workflow, issue forms, and PR template
+├── chrome-extension/           # MV3 manifest, service worker & content script
+│   ├── manifest.json           # Permissions, side panel config & provider host permissions
+│   ├── background.js           # Active-tab extraction bridge + check-in alarm scheduler
+│   └── content.js              # Clean DOM text extractor for active web pages
+├── sidepanel.html              # Chrome Side Panel HTML entry (built by vite.extension.config.ts)
+├── vite.extension.config.ts    # Builds unified React Side Panel + MV3 scripts into dist-extension/
+├── src/                        # Shared React 19 + TypeScript + Tailwind v4 codebase
+│   ├── sidepanel.tsx           # Extension entrypoint (<App mode="extension" />)
+│   ├── main.tsx                # Web sandbox entrypoint (<App mode="web" />)
+│   ├── components/             # Summary, Quiz, Tips, Chat, Vocab, Analytics, Settings, Pet Habitat
+│   ├── utils/                  # aiClient, tutorPrompts, extensionBridge, storage, missions, analytics
+│   └── types/                  # AI provider catalog + study, pet, and quiz TypeScript models
+├── server.ts                   # Optional local Express proxy (/api/tutor/*) + Vite middleware
+└── .github/                    # CI workflow, issue forms, and PR template
 ```
-
-> **Note on current codebase structure:** The full React workspace (`src/`) currently runs as a web simulator alongside a lightweight vanilla JS Chrome extension (`chrome-extension/`). Unifying the React UI directly into the Chrome Side Panel build is our top priority in Stage 2 below.
 
 ---
 
 ## Roadmap
-
-Pebble is actively evolving into a best-in-class open-source academic tutor. Here is what we are building next:
 
 ### Stage 1 — Open-Source Foundation
 - [x] MIT License, README, Contributing guide, Issue/PR templates, and GitHub Actions CI
 - [x] Configurable model environment variable (`GEMINI_MODEL`) and repo hygiene cleanup
 
 ### Stage 2 — Unified Extension & Multi-Provider BYOK
-- [ ] **Unified React Chrome Extension:** Build the full `src/` React Side Panel directly into the Manifest V3 extension (so real Chrome users get Vocab, Analytics, Pomodoro, Missions, Achievements, and Pet Accessories with one shared UI codebase)
-- [ ] **Multi-Provider BYOK (Free & Paid Models):** Support Google Gemini (free tier + model picker), OpenRouter (free & paid models), OpenAI, Anthropic, and local **Ollama / LM Studio** endpoints directly from the extension
+- [x] **Unified React Chrome Extension:** Compiles the full `src/` React Side Panel directly into Manifest V3 (`dist-extension/`) with every tab, Pomodoro timer, Vocab bank, Analytics, and Pet Habitat
+- [x] **Multi-Provider BYOK (Free & Paid Models):** Direct browser support for Google Gemini (free tier), OpenRouter (free & paid), Ollama / LM Studio (local & free), OpenAI, and Anthropic Claude with built-in connection testing
 
 ### Stage 3 — Academic Tutor v1 Upgrades
 - [ ] **Socratic Tutor Mode & Learner Profiles:** Guide students with hints and diagnostic questions before revealing answers, with adjustable academic depth (High School / Undergrad / Graduate)

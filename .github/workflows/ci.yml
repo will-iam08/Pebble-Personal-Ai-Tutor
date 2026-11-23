@@ -26,8 +26,16 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
-      - name: Build production bundle
-        run: npm run build
+      - name: Build web app and Chrome extension
+        run: npm run build:all
 
-      - name: Validate Chrome Extension manifest JSON
-        run: node -e "JSON.parse(require('fs').readFileSync('chrome-extension/manifest.json', 'utf8')); console.log('manifest.json is valid JSON');"
+      - name: Validate built Chrome Extension bundle
+        run: |
+          node -e "
+            const fs = require('fs');
+            for (const f of ['manifest.json', 'sidepanel.html', 'background.js', 'content.js']) {
+              if (!fs.existsSync('dist-extension/' + f)) throw new Error('Missing dist-extension/' + f);
+            }
+            JSON.parse(fs.readFileSync('dist-extension/manifest.json', 'utf8'));
+            console.log('dist-extension bundle validated successfully');
+          "

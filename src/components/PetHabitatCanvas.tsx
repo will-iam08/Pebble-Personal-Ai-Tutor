@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import habitatBgUrl from '../assets/images/pet_habitat_window_1795325407338.jpg';
 import { AccessoryId, getPetStage, PetReaction, PetState } from '../types/study';
 
 interface PetHabitatCanvasProps {
@@ -31,7 +32,7 @@ interface Biscuit {
   landed: boolean;
 }
 
-const HABITAT_BG_SRC = '/src/assets/images/pet_habitat_window_1795325407338.jpg';
+const HABITAT_BG_SRC = habitatBgUrl;
 
 export const PetHabitatCanvas: React.FC<PetHabitatCanvasProps> = ({
   pet,
