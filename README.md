@@ -24,11 +24,14 @@ Pebble turns any webpage, lecture PDF, or set of class notes into an interactive
 ## Features
 
 ### Multi-Source Study Reader
-- **Active Tab Extraction:** Pulls clean article/textbook content from your current Chrome tab while stripping navigation, ads, and boilerplate.
+- **Active Tab & YouTube Transcript Extraction:** Pulls clean article/textbook content from your current Chrome tab — and automatically extracts timestamped captions when you're watching a YouTube lecture.
+- **Screenshots & Diagrams (Vision):** Capture the visible browser tab in one click (in the Chrome extension), upload `.png`/`.jpg`/`.webp` images, or press `Ctrl+V` / `Cmd+V` anywhere in Pebble to study math equations, graphs, and charts.
+- **Highlight-to-Ask Context Menu:** Right-click highlighted text on any webpage to **Ask Pebble** or **Save to Pebble Vocab** directly inside the Side Panel.
 - **PDF & Notes Support:** Upload lecture slide PDFs directly (native PDF reading on Gemini & Claude) or paste raw study notes.
-- **Web Sandbox Mode:** Includes a built-in simulated Chrome browser with sample university course readings for local development and testing.
 
 ### AI Academic Study Tools
+- **Socratic Tutor Mode & Learner Profiles:** Switch between **Socratic** (guided hints & diagnostic questions with a one-click *Reveal direct answer* escape hatch) and **Direct** explanations, calibrated for **High School / AP**, **Undergrad**, or **Graduate** depth.
+- **LaTeX Math & Rich Markdown Rendering:** Crisp KaTeX equations (`$...$` / `$$...$$`), tables, and formatted code blocks across Summary, Quiz, Study Tips, Flashcards, Vocab, and Tutor Chat.
 - **Structured Lecture Summaries:** Generates a crisp TL;DR, difficulty rating, key concepts, formulas/formal definitions, and common exam traps with tips to avoid them.
 - **Interactive Quizzes & AI Grading:** Builds 5–10 multiple-choice, short-answer, or mixed questions with step-by-step explanations and conceptual grading for written responses.
 - **Study Tips & Active-Recall Flashcards:** Produces tailored study strategies, mnemonics/memory hooks, and flippable flashcards with hints.
@@ -142,9 +145,9 @@ Pebble-Personal-Ai-Tutor/
 - [x] **Multi-Provider BYOK (Free & Paid Models):** Direct browser support for Google Gemini (free tier), OpenRouter (free & paid), Ollama / LM Studio (local & free), OpenAI, and Anthropic Claude with built-in connection testing
 
 ### Stage 3 — Academic Tutor v1 Upgrades
-- [ ] **Socratic Tutor Mode & Learner Profiles:** Guide students with hints and diagnostic questions before revealing answers, with adjustable academic depth (High School / Undergrad / Graduate)
-- [ ] **LaTeX Math & Rich Markdown Rendering:** Full KaTeX math equations and syntax-highlighted code blocks across Summary, Quiz, and Chat
-- [ ] **Multimodal & Video Capture:** Screenshot/region capture for math diagrams and charts, YouTube lecture transcript import, and highlight-to-ask context menu
+- [x] **Socratic Tutor Mode & Learner Profiles:** Guide students with hints and diagnostic questions before revealing answers (with one-click *Reveal direct answer*), calibrated for High School / AP, Undergrad, and Graduate depth
+- [x] **LaTeX Math & Rich Markdown Rendering:** Full KaTeX math equations, tables, and formatted code blocks across Summary, Quiz, Study Tips, Flashcards, Vocab, and Chat
+- [x] **Multimodal & Video Capture:** One-click tab screenshot capture & clipboard image paste (`Ctrl/Cmd+V`), YouTube lecture transcript import, and right-click Highlight-to-Ask / Save-to-Vocab context menu
 
 ### Future (Phase 2)
 - [ ] **FSRS Spaced Repetition & Anki Export:** Real spaced-repetition scheduling for flashcards & vocabulary, plus `.apkg` / CSV export

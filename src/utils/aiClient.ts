@@ -55,6 +55,14 @@ async function callGemini(
       },
     });
   }
+  if (req.source?.imageBase64) {
+    parts.push({
+      inline_data: {
+        mime_type: req.source.imageMimeType || 'image/png',
+        data: req.source.imageBase64,
+      },
+    });
+  }
   parts.push({ text: req.userPrompt });
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
@@ -97,11 +105,25 @@ async function callOpenAICompatible(
   providerLabel: string,
   allowJsonMode: boolean
 ): Promise<string> {
+  const userContent: unknown = req.source?.imageBase64
+    ? [
+        {
+          type: 'image_url',
+          image_url: {
+            url:
+              req.source.imageDataUrl ||
+              `data:${req.source.imageMimeType || 'image/png'};base64,${req.source.imageBase64}`,
+          },
+        },
+        { type: 'text', text: req.userPrompt },
+      ]
+    : req.userPrompt;
+
   const body: Record<string, unknown> = {
     model,
     messages: [
       { role: 'system', content: req.systemInstruction },
-      { role: 'user', content: req.userPrompt },
+      { role: 'user', content: userContent },
     ],
   };
 
@@ -159,6 +181,10 @@ async function callAnthropic(
         type: 'document';
         source: { type: 'base64'; media_type: 'application/pdf'; data: string };
       }
+    | {
+        type: 'image';
+        source: { type: 'base64'; media_type: string; data: string };
+      }
   > = [];
 
   if (req.source?.pdfBase64) {
@@ -168,6 +194,16 @@ async function callAnthropic(
         type: 'base64',
         media_type: 'application/pdf',
         data: req.source.pdfBase64,
+      },
+    });
+  }
+  if (req.source?.imageBase64) {
+    contentBlocks.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: req.source.imageMimeType || 'image/png',
+        data: req.source.imageBase64,
       },
     });
   }

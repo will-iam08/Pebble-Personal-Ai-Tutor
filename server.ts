@@ -17,12 +17,35 @@ function getAiClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
+interface TutorProfileInput {
+  learnerLevel?: 'high_school' | 'undergrad' | 'grad';
+  tutorStyle?: 'socratic' | 'direct';
+}
+
 interface SourceInput {
+  kind?: string;
   text?: string;
   pdfBase64?: string;
   pdfName?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
   title?: string;
+  tutorProfile?: TutorProfileInput;
 }
+
+function getLevelInstruction(profile?: TutorProfileInput): string {
+  switch (profile?.learnerLevel) {
+    case 'high_school':
+      return 'Calibrate explanations for a High School / AP student with clear intuition and everyday analogies.';
+    case 'grad':
+      return 'Calibrate explanations for a Graduate / research-level learner with formal rigor and underlying assumptions.';
+    default:
+      return 'Calibrate explanations for an Undergraduate university student with formal definitions and exam clarity.';
+  }
+}
+
+const MATH_INSTRUCTION =
+  'Format mathematical expressions using LaTeX ($...$ for inline math, $$...$$ for display equations).';
 
 function buildSourceParts(source: SourceInput, instruction: string) {
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
@@ -36,22 +59,36 @@ function buildSourceParts(source: SourceInput, instruction: string) {
     });
   }
 
+  if (source.imageBase64) {
+    parts.push({
+      inlineData: {
+        mimeType: source.imageMimeType || 'image/png',
+        data: source.imageBase64,
+      },
+    });
+  }
+
   const trimmedText = (source.text || '').trim();
   const titleLine = source.title ? `Source Title: ${source.title}\n` : '';
   const pdfLine = source.pdfName ? `Attached PDF: ${source.pdfName}\n` : '';
+  const imgLine = source.imageBase64 ? 'Attached Screenshot/Diagram: Read all visible text, formulas, and graphs carefully.\n' : '';
 
   if (trimmedText) {
     // Keep up to 36,000 chars of clean lecture/article text
     const clipped = trimmedText.slice(0, 36000);
     parts.push({
-      text: `${titleLine}${pdfLine}Source Study Material:\n"""\n${clipped}\n"""\n\n${instruction}`,
+      text: `${titleLine}${pdfLine}${imgLine}Source Study Material:\n"""\n${clipped}\n"""\n\n${instruction}`,
+    });
+  } else if (source.imageBase64) {
+    parts.push({
+      text: `${titleLine}${imgLine}Analyze the attached study screenshot, formula, or diagram carefully.\n\n${instruction}`,
     });
   } else if (source.pdfBase64) {
     parts.push({
       text: `${titleLine}${pdfLine}Read the attached PDF lecture slides/document carefully.\n\n${instruction}`,
     });
   } else {
-    throw new Error('Please load a page, upload a PDF, or paste study notes first.');
+    throw new Error('Please load a page, screenshot, PDF, or paste study notes first.');
   }
 
   return parts;
@@ -326,9 +363,10 @@ async function createServer() {
   // 5. Grounded Tutor Chat
   app.post('/api/tutor/chat', async (req, res) => {
     try {
-      const { history = [], message, ...source } = req.body as SourceInput & {
+      const { history = [], message, forceDirect = false, ...source } = req.body as SourceInput & {
         history?: Array<{ role: 'user' | 'model'; text: string }>;
         message: string;
+        forceDirect?: boolean;
       };
 
       if (!message?.trim()) {
@@ -342,18 +380,25 @@ async function createServer() {
         .map((m) => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.text}`)
         .join('\n');
 
+      const directNote = forceDirect
+        ? ' The student asked for the full direct explanation now — give the complete step-by-step solution.'
+        : '';
+
       const prompt = recentHistory
-        ? `Conversation so far:\n${recentHistory}\n\nStudent's new question: ${message}\n\nAnswer clearly, concisely, and directly using the loaded study material. Use short paragraphs or bullet points when helpful.`
-        : `Student's question: ${message}\n\nAnswer clearly, concisely, and directly using the loaded study material. Use short paragraphs or bullet points when helpful.`;
+        ? `Conversation so far:\n${recentHistory}\n\nStudent's new question: ${message}\n\nAnswer clearly, concisely, and directly using the loaded study material.${directNote} Use Markdown and LaTeX math ($...$ / $$...$$) when helpful.`
+        : `Student's question: ${message}\n\nAnswer clearly, concisely, and directly using the loaded study material.${directNote} Use Markdown and LaTeX math ($...$ / $$...$$) when helpful.`;
 
       const parts = buildSourceParts(source, prompt);
+      const useSocratic = source.tutorProfile?.tutorStyle === 'socratic' && !forceDirect;
+      const pedagogy = useSocratic
+        ? 'Use Socratic tutoring: give one focused hint or scaffold and ask 1 guiding question before revealing the full final answer, unless the student asks for a direct factual definition.'
+        : 'Explain clearly and directly step by step.';
 
       const response = await ai.models.generateContent({
         model: MODEL,
         contents: { parts },
         config: {
-          systemInstruction:
-            'You are Pebble, a calm, insightful study tutor sitting in the student’s Chrome Side Panel. Explain step by step, check intuition, and connect answers back to the loaded article, PDF, or notes. If something is outside the provided text, say so briefly before answering.',
+          systemInstruction: `You are Pebble, a calm, insightful study tutor sitting in the student’s Chrome Side Panel. ${pedagogy} ${getLevelInstruction(source.tutorProfile)} ${MATH_INSTRUCTION} If something is outside the provided text, say so briefly before answering.`,
         },
       });
 

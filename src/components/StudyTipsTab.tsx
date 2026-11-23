@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Lightbulb, RefreshCw, RotateCw } from 'lucide-react';
 import { StudySource, StudyTipsData } from '../types/study';
+import { AcademicMarkdown } from './AcademicMarkdown';
 
 interface StudyTipsTabProps {
   source: StudySource | null;
@@ -95,9 +96,10 @@ export const StudyTipsTab: React.FC<StudyTipsTabProps> = ({
                 ~{tips.estimatedMinutes} min focus block
               </span>
             </div>
-            <p className="text-xs text-[#45535E] dark:text-[#B5C1C9] leading-relaxed">
-              {tips.focusAdvice}
-            </p>
+            <AcademicMarkdown
+              content={tips.focusAdvice}
+              className="text-xs text-[#45535E] dark:text-[#B5C1C9] leading-relaxed"
+            />
           </div>
 
           {/* Targeted Study Strategies */}
@@ -110,7 +112,10 @@ export const StudyTipsTab: React.FC<StudyTipsTabProps> = ({
                 {tips.strategies.map((s, idx) => (
                   <div key={idx} className="text-xs leading-relaxed">
                     <p className="font-semibold text-[#182026] dark:text-[#F1F3F5]">{s.title}</p>
-                    <p className="text-[#45535E] dark:text-[#B5C1C9] mt-0.5">{s.description}</p>
+                    <AcademicMarkdown
+                      content={s.description}
+                      className="text-[#45535E] dark:text-[#B5C1C9] mt-0.5"
+                    />
                   </div>
                 ))}
               </div>
@@ -132,9 +137,10 @@ export const StudyTipsTab: React.FC<StudyTipsTabProps> = ({
                     <span className="font-semibold text-[#182026] dark:text-[#F1F3F5]">
                       {m.concept}
                     </span>
-                    <p className="text-[#45535E] dark:text-[#B5C1C9] mt-0.5 leading-relaxed">
-                      {m.hook}
-                    </p>
+                    <AcademicMarkdown
+                      content={m.hook}
+                      className="text-[#45535E] dark:text-[#B5C1C9] mt-0.5 leading-relaxed"
+                    />
                   </div>
                 ))}
               </div>
@@ -188,16 +194,18 @@ export const StudyTipsTab: React.FC<StudyTipsTabProps> = ({
                       </span>
                     </div>
 
-                    <p className="text-xs font-medium text-[#182026] dark:text-[#F1F3F5] leading-relaxed">
-                      {flipped ? fc.back : fc.front}
-                    </p>
+                    <AcademicMarkdown
+                      content={flipped ? fc.back : fc.front}
+                      className="text-xs font-medium text-[#182026] dark:text-[#F1F3F5] leading-relaxed"
+                    />
 
                     {!flipped && fc.hint && (
                       <div className="mt-2">
                         {showHint ? (
-                          <p className="text-[11px] text-[#5C6B77] dark:text-[#9AA8B2]">
-                            Hint: {fc.hint}
-                          </p>
+                          <AcademicMarkdown
+                            content={`**Hint:** ${fc.hint}`}
+                            className="text-[11px] text-[#5C6B77] dark:text-[#9AA8B2]"
+                          />
                         ) : (
                           <button
                             type="button"

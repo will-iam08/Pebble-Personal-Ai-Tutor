@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, ClipboardCheck, HelpCircle, RefreshCw, XCircle } from 'lucide-react';
 import { QuizData, QuizQuestion, ShortAnswerGrade, StudySource } from '../types/study';
 import { gradeShortAnswer } from '../utils/tutorApi';
+import { AcademicMarkdown } from './AcademicMarkdown';
 
 interface QuizTabProps {
   source: StudySource | null;
@@ -193,12 +194,12 @@ export const QuizTab: React.FC<QuizTabProps> = ({
                 className="rounded-xl border border-[#DFE5EB] dark:border-[#293741] bg-white dark:bg-[#182127] p-4 flex flex-col gap-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold text-[#182026] dark:text-[#F1F3F5] leading-relaxed">
-                    <span className="font-mono text-[#5C6B77] dark:text-[#8E9EA9] mr-1.5">
+                  <div className="text-xs font-semibold text-[#182026] dark:text-[#F1F3F5] leading-relaxed flex items-start gap-1.5 min-w-0">
+                    <span className="font-mono text-[#5C6B77] dark:text-[#8E9EA9] shrink-0">
                       Q{idx + 1}.
                     </span>
-                    {q.question}
-                  </p>
+                    <AcademicMarkdown content={q.question} inline />
+                  </div>
                   <span className="text-[10.5px] font-mono text-[#6B7B87] dark:text-[#8394A0] shrink-0">
                     {isShort ? 'Short' : 'MCQ'}
                   </span>
@@ -237,7 +238,7 @@ export const QuizTab: React.FC<QuizTabProps> = ({
                           <span className="font-mono font-semibold shrink-0">
                             {String.fromCharCode(65 + optIdx)}.
                           </span>
-                          <span className="leading-snug">{option}</span>
+                          <AcademicMarkdown content={option} inline className="leading-snug" />
                         </button>
                       );
                     })}
@@ -307,18 +308,24 @@ export const QuizTab: React.FC<QuizTabProps> = ({
 
                     {state.gradeFeedback ? (
                       <>
-                        <p>{state.gradeFeedback.feedback}</p>
-                        <p className="mt-1 opacity-90">{state.gradeFeedback.stepByStep}</p>
+                        <AcademicMarkdown content={state.gradeFeedback.feedback} />
+                        <AcademicMarkdown
+                          content={state.gradeFeedback.stepByStep}
+                          className="mt-1 opacity-90"
+                        />
                       </>
                     ) : (
-                      <p>{q.explanation}</p>
+                      <AcademicMarkdown content={q.explanation} />
                     )}
 
                     {isShort && q.sampleAnswer && (
-                      <p className="mt-1.5 pt-1.5 border-t border-black/10 dark:border-white/10 text-[11px] opacity-90">
-                        <HelpCircle className="w-3 h-3 inline mr-1" />
-                        Model answer: {q.sampleAnswer}
-                      </p>
+                      <div className="mt-1.5 pt-1.5 border-t border-black/10 dark:border-white/10 text-[11px] opacity-90 flex items-start gap-1">
+                        <HelpCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                        <AcademicMarkdown
+                          content={`**Model answer:** ${q.sampleAnswer}`}
+                          inline
+                        />
+                      </div>
                     )}
                   </div>
                 )}
