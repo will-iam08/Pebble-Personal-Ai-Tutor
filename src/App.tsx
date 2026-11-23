@@ -16,6 +16,7 @@ import {
   AccessoryId,
   ChatMessage,
   DailyMissionState,
+  FsrsRating,
   getPetStage,
   getXpForLevel,
   LectureSummaryData,
@@ -27,6 +28,7 @@ import {
   PomodoroState,
   QuizData,
   ReminderSettings,
+  StudyCard,
   StudySource,
   StudyTipsData,
   ThemeMode,
@@ -102,6 +104,8 @@ import {
   normalizeTermKey,
   saveVocabEntries,
 } from './utils/vocab';
+import { loadStudyDeck, mergeCardsIntoDeck, saveStudyDeck } from './utils/deckStorage';
+import { isCardDue, scheduleCard } from './utils/fsrs';
 import {
   exportChatFile,
   exportCombinedStudyPack,
@@ -173,6 +177,7 @@ export default function App({ mode }: AppProps = {}) {
 
   const [vocabEntries, setVocabEntries] = useState<VocabEntry[]>(() => loadVocabEntries());
   const [definingVocabIds, setDefiningVocabIds] = useState<Record<string, boolean>>({});
+  const [studyDeck, setStudyDeck] = useState<StudyCard[]>(() => loadStudyDeck());
 
   const [pomodoro, setPomodoro] = useState<PomodoroState>({
     phase: 'focus',
@@ -240,6 +245,10 @@ export default function App({ mode }: AppProps = {}) {
   useEffect(() => {
     saveVocabEntries(vocabEntries);
   }, [vocabEntries]);
+
+  useEffect(() => {
+    saveStudyDeck(studyDeck);
+  }, [studyDeck]);
 
   useEffect(() => {
     saveReminderSettings(reminderSettings);
@@ -855,6 +864,69 @@ export default function App({ mode }: AppProps = {}) {
     setAnalyticsStore((prev) => recordStudyDelta(prev, { flashcards: 1, studyMinutes: 0.5 }));
   };
 
+  const handleAddCardsToDeck = useCallback(
+    (
+      incoming: Array<{
+        front: string;
+        back: string;
+        hint?: string;
+        tags?: string[];
+        sourceTitle?: string;
+      }>
+    ): number => {
+      let addedCount = 0;
+      setStudyDeck((prev) => {
+        const merged = mergeCardsIntoDeck(prev, incoming);
+        addedCount = merged.addedCount;
+        return merged.nextDeck;
+      });
+      if (addedCount > 0) {
+        soundEngine.playUiClick();
+        triggerReaction(
+          'pet',
+          `Added ${addedCount} card${addedCount === 1 ? '' : 's'} to your FSRS spaced-repetition deck!`
+        );
+      }
+      return addedCount;
+    },
+    [triggerReaction]
+  );
+
+  const handleReviewDeckCard = useCallback(
+    (cardId: string, rating: FsrsRating) => {
+      setStudyDeck((prev) =>
+        prev.map((card) => (card.id === cardId ? scheduleCard(card, rating).card : card))
+      );
+      if (rating === 1) {
+        soundEngine.playIncorrect();
+        triggerReaction('startled', 'No worries — FSRS will bring that card back in 10 minutes!');
+      } else {
+        soundEngine.playCorrect();
+        handlePetReward({
+          xp: rating === 4 ? 8 : 6,
+          treats: rating >= 3 ? 1 : 0,
+          mood: 5,
+          flashcardsDelta: 1,
+          reaction: 'cheer',
+          caption: `FSRS review logged (+${rating === 4 ? 8 : 6} XP${rating >= 3 ? ' & +1 treat' : ''}).`,
+        });
+        handleMissionEvent({ type: 'flashcard_reviewed' });
+        setAnalyticsStore((prev) => recordStudyDelta(prev, { flashcards: 1, studyMinutes: 0.5 }));
+      }
+    },
+    [handleMissionEvent, handlePetReward, triggerReaction]
+  );
+
+  const handleDeleteDeckCard = useCallback((cardId: string) => {
+    soundEngine.playUiClick();
+    setStudyDeck((prev) => prev.filter((c) => c.id !== cardId));
+  }, []);
+
+  const dueDeckCount = useMemo(
+    () => studyDeck.filter((c) => isCardDue(c)).length,
+    [studyDeck]
+  );
+
   const handleSendChat = useCallback(
     async (
       message: string,
@@ -1382,7 +1454,7 @@ export default function App({ mode }: AppProps = {}) {
                   [
                     { id: 'summary', label: 'Summary' },
                     { id: 'quiz', label: 'Quiz' },
-                    { id: 'tips', label: 'Tips' },
+                    { id: 'tips', label: dueDeckCount > 0 ? `Tips (${dueDeckCount})` : 'Tips' },
                     { id: 'chat', label: 'Chat' },
                     { id: 'vocab', label: 'Vocab' },
                     { id: 'analytics', label: 'Analytics' },
@@ -1450,8 +1522,12 @@ export default function App({ mode }: AppProps = {}) {
                 source={source}
                 tips={tipsData}
                 loading={tipsLoading}
+                deck={studyDeck}
                 onGenerate={handleGenerateTips}
                 onMasterFlashcard={handleMasterFlashcard}
+                onAddCardsToDeck={handleAddCardsToDeck}
+                onReviewDeckCard={handleReviewDeckCard}
+                onDeleteDeckCard={handleDeleteDeckCard}
               />
             )}
 
@@ -1481,6 +1557,20 @@ export default function App({ mode }: AppProps = {}) {
                 onDefineAllPending={handleDefineAllPendingVocab}
                 onToggleMastered={handleToggleVocabMastered}
                 onDeleteTerm={handleDeleteVocabTerm}
+                onSendToDeck={(entry) => {
+                  if (!entry.simpleDefinition) return;
+                  handleAddCardsToDeck([
+                    {
+                      front: `Define: ${entry.term}`,
+                      back: entry.analogyOrExample
+                        ? `${entry.simpleDefinition}\n\nExample: ${entry.analogyOrExample}`
+                        : entry.simpleDefinition,
+                      hint: entry.memoryCue,
+                      tags: ['vocab', entry.sourceTitle || 'glossary'],
+                      sourceTitle: entry.sourceTitle,
+                    },
+                  ]);
+                }}
               />
             )}
 

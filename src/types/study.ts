@@ -203,6 +203,27 @@ export interface VocabEntry {
   mastered: boolean;
 }
 
+export type FsrsRating = 1 | 2 | 3 | 4; // 1=Again, 2=Hard, 3=Good, 4=Easy
+
+export type FsrsCardState = 'new' | 'learning' | 'review' | 'relearning';
+
+export interface StudyCard {
+  id: string;
+  front: string;
+  back: string;
+  hint?: string;
+  tags: string[];
+  sourceTitle?: string;
+  createdAt: number;
+  dueAt: number;
+  lastReviewedAt: number | null;
+  stability: number; // Memory stability in days
+  difficulty: number; // Card difficulty 1..10
+  reps: number;
+  lapses: number;
+  state: FsrsCardState;
+}
+
 export type PomodoroPhase = 'focus' | 'break';
 
 export interface PomodoroState {

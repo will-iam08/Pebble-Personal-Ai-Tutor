@@ -26,7 +26,12 @@ import {
   PROVIDER_CATALOG,
 } from '../types/ai';
 import { ReminderSettings, ThemeMode } from '../types/study';
-import { fetchLocalOllamaModels, testProviderConnection } from '../utils/aiClient';
+import {
+  BridgeCliStatus,
+  fetchLocalBridgeStatus,
+  fetchLocalOllamaModels,
+  testProviderConnection,
+} from '../utils/aiClient';
 
 interface SettingsModalProps {
   isExtensionMode: boolean;
@@ -67,6 +72,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [loadingOllama, setLoadingOllama] = useState(false);
   const [ollamaError, setOllamaError] = useState<string | null>(null);
+  const [bridgeClis, setBridgeClis] = useState<BridgeCliStatus[]>([]);
+  const [loadingBridge, setLoadingBridge] = useState(false);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
 
   const visibleProviders = PROVIDER_CATALOG.filter((p) =>
     isExtensionMode ? p.id !== 'server' : true
@@ -114,6 +122,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ...aiSettings,
       ollamaBaseUrl: value,
     });
+  };
+
+  const handleBridgeBaseUrlChange = (value: string) => {
+    setConnResult(null);
+    setBridgeError(null);
+    onUpdateAISettings({
+      ...aiSettings,
+      bridgeBaseUrl: value,
+    });
+  };
+
+  const handleDetectBridgeClis = async () => {
+    setLoadingBridge(true);
+    setBridgeError(null);
+    try {
+      const clis = await fetchLocalBridgeStatus(aiSettings.bridgeBaseUrl);
+      setBridgeClis(clis);
+      const firstInstalled = clis.find((c) => c.installed);
+      if (firstInstalled) {
+        handleModelChange(firstInstalled.id);
+      } else {
+        setBridgeError('Bridge is running, but none of claude, codex, or gemini were found on PATH.');
+      }
+    } catch (err) {
+      setBridgeError(
+        err instanceof Error
+          ? `${err.message} Start the bridge with: npm run bridge`
+          : 'Could not connect to Pebble Local CLI Bridge. Start it with: npm run bridge'
+      );
+    } finally {
+      setLoadingBridge(false);
+    }
   };
 
   const handleFetchOllamaModels = async () => {
@@ -285,8 +325,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
 
+              {/* Local CLI Subscription Bridge Config */}
+              {aiSettings.provider === 'bridge' && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="bridge-base-url"
+                      className="text-[11px] font-medium text-[#45535E] dark:text-[#B5C1C9]"
+                    >
+                      Pebble Local CLI Bridge URL
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleDetectBridgeClis}
+                      disabled={loadingBridge}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-[#3D9E71] dark:text-[#65C99A] hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingBridge ? 'animate-spin' : ''}`} />
+                      <span>Detect installed CLIs</span>
+                    </button>
+                  </div>
+                  <input
+                    id="bridge-base-url"
+                    type="url"
+                    value={aiSettings.bridgeBaseUrl}
+                    onChange={(e) => handleBridgeBaseUrlChange(e.target.value)}
+                    placeholder="http://127.0.0.1:4318"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-[#182127] border border-[#D4DCE3] dark:border-[#30404B] font-mono text-xs text-[#182026] dark:text-[#F1F3F5]"
+                  />
+                  <p className="text-[10.5px] text-[#5C6B77] dark:text-[#8E9EA9]">
+                    Run <span className="font-mono">npm run bridge</span> in your terminal to connect Claude Code, Codex, or Gemini CLI subscriptions locally.
+                  </p>
+                  {bridgeClis.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {bridgeClis.map((cli) => (
+                        <button
+                          key={cli.id}
+                          type="button"
+                          disabled={!cli.installed}
+                          onClick={() => handleModelChange(cli.id)}
+                          className={`px-2 py-1 rounded-md border text-[10.5px] font-mono transition-colors ${
+                            cli.installed
+                              ? activeModel.startsWith(cli.id)
+                                ? 'bg-[#E6F5EE] dark:bg-[#1A3329] border-[#3D9E71] text-[#1E6B47] dark:text-[#74C69D] cursor-pointer'
+                                : 'bg-white dark:bg-[#182127] border-[#D4DCE3] dark:border-[#30404B] text-[#182026] dark:text-[#E2E8EE] cursor-pointer'
+                              : 'bg-transparent border-[#DCE2E8] dark:border-[#26343E] text-[#8E9EA9] opacity-60 cursor-not-allowed'
+                          }`}
+                        >
+                          {cli.command} {cli.installed ? '✓' : '✗'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {bridgeError && (
+                    <p className="text-[11px] text-[#C93B2B] dark:text-[#F06455]">{bridgeError}</p>
+                  )}
+                </div>
+              )}
+
               {/* API Key Input (for BYOK & optional Ollama token) */}
-              {aiSettings.provider !== 'server' && (
+              {aiSettings.provider !== 'server' && aiSettings.provider !== 'bridge' && (
                 <div className="flex flex-col gap-1">
                   <label
                     htmlFor="provider-api-key"

@@ -4,6 +4,7 @@ export type AIProviderId =
   | 'openai'
   | 'anthropic'
   | 'ollama'
+  | 'bridge'
   | 'server';
 
 export interface ProviderModelPreset {
@@ -33,6 +34,7 @@ export interface AIProviderSettings {
   models: Record<AIProviderId, string>;
   apiKeys: Partial<Record<AIProviderId, string>>;
   ollamaBaseUrl: string;
+  bridgeBaseUrl: string;
 }
 
 export const PROVIDER_CATALOG: ProviderMetadata[] = [
@@ -131,6 +133,23 @@ export const PROVIDER_CATALOG: ProviderMetadata[] = [
     ],
   },
   {
+    id: 'bridge',
+    name: 'Local CLI Bridge',
+    shortName: 'CLI Bridge',
+    badge: 'Subscriptions',
+    description:
+      'Connect your existing Claude Pro, ChatGPT Plus, or Gemini CLI subscription locally via `npm run bridge`.',
+    requiresApiKey: false,
+    supportsPdfNative: false,
+    defaultModel: 'claude',
+    defaultBaseUrl: 'http://127.0.0.1:4318',
+    presets: [
+      { id: 'claude', label: 'Claude Code CLI', badge: 'Claude Sub' },
+      { id: 'codex', label: 'OpenAI Codex CLI', badge: 'ChatGPT Sub' },
+      { id: 'gemini', label: 'Gemini CLI', badge: 'Google Login' },
+    ],
+  },
+  {
     id: 'server',
     name: 'Local Server (.env)',
     shortName: 'Server',
@@ -156,10 +175,12 @@ export function createDefaultAISettings(isExtension: boolean): AIProviderSetting
       openai: 'gpt-4o-mini',
       anthropic: 'claude-sonnet-4-20250514',
       ollama: 'llama3.2',
+      bridge: 'claude',
       server: 'server-env',
     },
     apiKeys: {},
     ollamaBaseUrl: 'http://localhost:11434/v1',
+    bridgeBaseUrl: 'http://127.0.0.1:4318',
   };
 }
 

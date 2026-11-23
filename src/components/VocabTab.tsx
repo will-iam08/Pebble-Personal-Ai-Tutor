@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BookMarked, Check, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { BookMarked, Check, Layers, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { VocabEntry, VocabOrigin } from '../types/study';
 import { AcademicMarkdown } from './AcademicMarkdown';
 
@@ -12,6 +12,7 @@ interface VocabTabProps {
   onDefineAllPending: () => void;
   onToggleMastered: (entryId: string) => void;
   onDeleteTerm: (entryId: string) => void;
+  onSendToDeck?: (entry: VocabEntry) => void;
 }
 
 type VocabFilter = 'all' | 'pending' | 'mastered';
@@ -31,6 +32,7 @@ export const VocabTab: React.FC<VocabTabProps> = ({
   onDefineAllPending,
   onToggleMastered,
   onDeleteTerm,
+  onSendToDeck,
 }) => {
   const [draftTerm, setDraftTerm] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -264,6 +266,18 @@ export const VocabTab: React.FC<VocabTabProps> = ({
                       <p className="text-[11px] text-[#2F8F63] dark:text-[#65C99A] font-medium">
                         Recall cue: {entry.memoryCue}
                       </p>
+                    )}
+                    {onSendToDeck && (
+                      <div className="pt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => onSendToDeck(entry)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E6F5EE] dark:bg-[#1D352B] text-[10.5px] font-semibold text-[#1F704B] dark:text-[#74C69D] hover:opacity-90 cursor-pointer"
+                        >
+                          <Layers className="w-3 h-3" />
+                          <span>+ FSRS Deck</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 ) : (
