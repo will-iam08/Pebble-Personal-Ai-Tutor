@@ -37,11 +37,17 @@ export function isChromeExtensionRuntime(): boolean {
 
 export interface ExtractedTabResult {
   ok: true;
-  kind: 'page' | 'youtube';
+  kind: 'page' | 'youtube' | 'pdf' | 'image';
   title: string;
   url: string;
-  text: string;
-  wordCount: number;
+  text?: string;
+  wordCount?: number;
+  pdfBase64?: string;
+  pdfName?: string;
+  fileSizeBytes?: number;
+  dataUrl?: string;
+  base64?: string;
+  mimeType?: string;
 }
 
 export interface ExtractedTabError {
@@ -85,29 +91,63 @@ export function extractActiveBrowserTab(): Promise<ExtractedTabResult | Extracte
       const payload = res as
         | {
             ok?: boolean;
-            kind?: 'page' | 'youtube';
+            kind?: 'page' | 'youtube' | 'pdf' | 'image';
             title?: string;
             url?: string;
             text?: string;
             wordCount?: number;
+            pdfBase64?: string;
+            pdfName?: string;
+            fileSizeBytes?: number;
+            dataUrl?: string;
+            base64?: string;
+            mimeType?: string;
             error?: string;
           }
         | undefined;
-      if (payload?.ok && typeof payload.text === 'string') {
-        resolve({
-          ok: true,
-          kind: payload.kind === 'youtube' ? 'youtube' : 'page',
-          title: payload.title || 'Untitled Web Page',
-          url: payload.url || '',
-          text: payload.text,
-          wordCount: payload.wordCount ?? payload.text.split(/\s+/).filter(Boolean).length,
-        });
-      } else {
-        resolve({
-          ok: false,
-          error: payload?.error || 'Could not extract readable text from the active tab.',
-        });
+      if (payload?.ok) {
+        if (payload.kind === 'pdf' && typeof payload.pdfBase64 === 'string') {
+          resolve({
+            ok: true,
+            kind: 'pdf',
+            title: payload.title || payload.pdfName || 'Lecture PDF',
+            url: payload.url || '',
+            pdfBase64: payload.pdfBase64,
+            pdfName: payload.pdfName || 'lecture.pdf',
+            fileSizeBytes: payload.fileSizeBytes,
+            text: payload.text,
+            wordCount: payload.wordCount,
+          });
+          return;
+        }
+        if (payload.kind === 'image' && typeof payload.base64 === 'string' && typeof payload.dataUrl === 'string') {
+          resolve({
+            ok: true,
+            kind: 'image',
+            title: payload.title || 'Slide Snapshot',
+            url: payload.url || '',
+            dataUrl: payload.dataUrl,
+            base64: payload.base64,
+            mimeType: payload.mimeType || 'image/png',
+          });
+          return;
+        }
+        if (typeof payload.text === 'string') {
+          resolve({
+            ok: true,
+            kind: payload.kind === 'youtube' ? 'youtube' : 'page',
+            title: payload.title || 'Untitled Web Page',
+            url: payload.url || '',
+            text: payload.text,
+            wordCount: payload.wordCount ?? payload.text.split(/\s+/).filter(Boolean).length,
+          });
+          return;
+        }
       }
+      resolve({
+        ok: false,
+        error: payload?.error || 'Could not extract readable text or PDF from the active tab.',
+      });
     });
   });
 }

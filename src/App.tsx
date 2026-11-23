@@ -16,6 +16,7 @@ import {
   AccessoryId,
   ChatMessage,
   DailyMissionState,
+  FsrsRating,
   getPetStage,
   getXpForLevel,
   LectureSummaryData,
@@ -27,6 +28,7 @@ import {
   PomodoroState,
   QuizData,
   ReminderSettings,
+  StudyCard,
   StudySource,
   StudyTipsData,
   ThemeMode,
@@ -102,6 +104,8 @@ import {
   normalizeTermKey,
   saveVocabEntries,
 } from './utils/vocab';
+import { loadStudyDeck, mergeCardsIntoDeck, saveStudyDeck } from './utils/deckStorage';
+import { isCardDue, scheduleCard } from './utils/fsrs';
 import {
   exportChatFile,
   exportCombinedStudyPack,
@@ -173,6 +177,7 @@ export default function App({ mode }: AppProps = {}) {
 
   const [vocabEntries, setVocabEntries] = useState<VocabEntry[]>(() => loadVocabEntries());
   const [definingVocabIds, setDefiningVocabIds] = useState<Record<string, boolean>>({});
+  const [studyDeck, setStudyDeck] = useState<StudyCard[]>(() => loadStudyDeck());
 
   const [pomodoro, setPomodoro] = useState<PomodoroState>({
     phase: 'focus',
@@ -240,6 +245,10 @@ export default function App({ mode }: AppProps = {}) {
   useEffect(() => {
     saveVocabEntries(vocabEntries);
   }, [vocabEntries]);
+
+  useEffect(() => {
+    saveStudyDeck(studyDeck);
+  }, [studyDeck]);
 
   useEffect(() => {
     saveReminderSettings(reminderSettings);
@@ -594,17 +603,53 @@ export default function App({ mode }: AppProps = {}) {
         return;
       }
       resetGeneratedOutputs();
+
+      if (result.kind === 'pdf' && result.pdfBase64) {
+        setSource({
+          kind: 'pdf',
+          title: result.title,
+          url: result.url,
+          pdfBase64: result.pdfBase64,
+          pdfName: result.pdfName || 'lecture.pdf',
+          fileSizeLabel: result.fileSizeBytes ? formatFileSize(result.fileSizeBytes) : 'PDF',
+          text: result.text,
+          wordCount: result.wordCount,
+        });
+        triggerReaction(
+          'cheer',
+          `Loaded embedded PDF "${result.title.slice(0, 32)}" — ready to summarize, quiz, or ask about handwritten notes!`
+        );
+        return;
+      }
+
+      if (result.kind === 'image' && result.base64 && result.dataUrl) {
+        setSource({
+          kind: 'image',
+          title: result.title,
+          url: result.url,
+          imageBase64: result.base64,
+          imageMimeType: result.mimeType || 'image/png',
+          imageDataUrl: result.dataUrl,
+          fileSizeLabel: formatFileSize(Math.round((result.base64.length * 3) / 4)),
+        });
+        triggerReaction(
+          'cheer',
+          `Captured visual slide snapshot from "${result.title.slice(0, 28)}" — ready to study!`
+        );
+        return;
+      }
+
       setSource({
-        kind: result.kind,
+        kind: result.kind === 'youtube' ? 'youtube' : 'page',
         title: result.title,
         url: result.url,
-        text: result.text,
+        text: result.text || '',
         wordCount: result.wordCount,
       });
       triggerReaction(
         'cheer',
         result.kind === 'youtube'
-          ? `Imported YouTube transcript (${result.wordCount} words) — ready to summarize or quiz!`
+          ? `Imported YouTube transcript (${result.wordCount ?? 0} words) — ready to summarize or quiz!`
           : `Read "${result.title.slice(0, 32)}" — ready to summarize or quiz!`
       );
       return;
@@ -854,6 +899,69 @@ export default function App({ mode }: AppProps = {}) {
     handleMissionEvent({ type: 'flashcard_reviewed' });
     setAnalyticsStore((prev) => recordStudyDelta(prev, { flashcards: 1, studyMinutes: 0.5 }));
   };
+
+  const handleAddCardsToDeck = useCallback(
+    (
+      incoming: Array<{
+        front: string;
+        back: string;
+        hint?: string;
+        tags?: string[];
+        sourceTitle?: string;
+      }>
+    ): number => {
+      let addedCount = 0;
+      setStudyDeck((prev) => {
+        const merged = mergeCardsIntoDeck(prev, incoming);
+        addedCount = merged.addedCount;
+        return merged.nextDeck;
+      });
+      if (addedCount > 0) {
+        soundEngine.playUiClick();
+        triggerReaction(
+          'pet',
+          `Added ${addedCount} card${addedCount === 1 ? '' : 's'} to your FSRS spaced-repetition deck!`
+        );
+      }
+      return addedCount;
+    },
+    [triggerReaction]
+  );
+
+  const handleReviewDeckCard = useCallback(
+    (cardId: string, rating: FsrsRating) => {
+      setStudyDeck((prev) =>
+        prev.map((card) => (card.id === cardId ? scheduleCard(card, rating).card : card))
+      );
+      if (rating === 1) {
+        soundEngine.playIncorrect();
+        triggerReaction('startled', 'No worries — FSRS will bring that card back in 10 minutes!');
+      } else {
+        soundEngine.playCorrect();
+        handlePetReward({
+          xp: rating === 4 ? 8 : 6,
+          treats: rating >= 3 ? 1 : 0,
+          mood: 5,
+          flashcardsDelta: 1,
+          reaction: 'cheer',
+          caption: `FSRS review logged (+${rating === 4 ? 8 : 6} XP${rating >= 3 ? ' & +1 treat' : ''}).`,
+        });
+        handleMissionEvent({ type: 'flashcard_reviewed' });
+        setAnalyticsStore((prev) => recordStudyDelta(prev, { flashcards: 1, studyMinutes: 0.5 }));
+      }
+    },
+    [handleMissionEvent, handlePetReward, triggerReaction]
+  );
+
+  const handleDeleteDeckCard = useCallback((cardId: string) => {
+    soundEngine.playUiClick();
+    setStudyDeck((prev) => prev.filter((c) => c.id !== cardId));
+  }, []);
+
+  const dueDeckCount = useMemo(
+    () => studyDeck.filter((c) => isCardDue(c)).length,
+    [studyDeck]
+  );
 
   const handleSendChat = useCallback(
     async (
@@ -1264,10 +1372,10 @@ export default function App({ mode }: AppProps = {}) {
               </div>
             </header>
           ) : (
-            <header className="flex items-center justify-between gap-2 px-4 py-2.5 bg-white dark:bg-[#182127] border-b border-[#DFE5EB] dark:border-[#293741] shrink-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <header className="flex items-center justify-between gap-1.5 px-3 py-2.5 bg-white dark:bg-[#182127] border-b border-[#DFE5EB] dark:border-[#293741] shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <PebbleIcon className="w-5 h-5 shrink-0" />
-                <span className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] truncate">
+                <span className="font-display text-sm font-bold text-[#182026] dark:text-[#F1F3F5] whitespace-nowrap shrink-0">
                   Pebble
                 </span>
                 <button
@@ -1277,30 +1385,30 @@ export default function App({ mode }: AppProps = {}) {
                     setSettingsOpen(true);
                   }}
                   title={`Active AI: ${activeProviderMeta.name} (${activeModelLabel}). Click to change provider or API key.`}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition-colors whitespace-nowrap truncate max-w-[125px] cursor-pointer ${
                     providerConfigured
                       ? 'bg-[#EFF3F6] dark:bg-[#22303A] border-[#DCE2E8] dark:border-[#324552] text-[#45535E] dark:text-[#B5C1C9] hover:border-[#E86A33]'
                       : 'bg-[#FFF4EE] dark:bg-[#2B1F19] border-[#E86A33]/60 text-[#C44D1B] dark:text-[#F49A71]'
                   }`}
                 >
                   <Cpu className="w-3 h-3 shrink-0" />
-                  <span>
-                    {providerConfigured ? activeProviderMeta.shortName : 'Setup AI Key'}
+                  <span className="truncate">
+                    {providerConfigured ? activeProviderMeta.shortName : 'AI Key'}
                   </span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={handleToggleFocusMode}
                   aria-pressed={focusMode}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-[#45535E] dark:text-[#B5C1C9] hover:bg-[#EFF3F6] dark:hover:bg-[#233039] hover:text-[#182026] dark:hover:text-[#F1F3F5] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[11px] font-semibold text-[#45535E] dark:text-[#B5C1C9] hover:bg-[#EFF3F6] dark:hover:bg-[#233039] hover:text-[#182026] dark:hover:text-[#F1F3F5] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   aria-label="Enable Focus Mode"
                   title="Focus Mode — minimize pet and navigation"
                 >
                   <Maximize2 className="w-3.5 h-3.5 text-[#3D9E71] dark:text-[#52B788]" />
-                  <span>Focus</span>
+                  <span className="hidden sm:inline">Focus</span>
                 </button>
 
                 <button
@@ -1382,7 +1490,7 @@ export default function App({ mode }: AppProps = {}) {
                   [
                     { id: 'summary', label: 'Summary' },
                     { id: 'quiz', label: 'Quiz' },
-                    { id: 'tips', label: 'Tips' },
+                    { id: 'tips', label: dueDeckCount > 0 ? `Tips (${dueDeckCount})` : 'Tips' },
                     { id: 'chat', label: 'Chat' },
                     { id: 'vocab', label: 'Vocab' },
                     { id: 'analytics', label: 'Analytics' },
@@ -1450,8 +1558,12 @@ export default function App({ mode }: AppProps = {}) {
                 source={source}
                 tips={tipsData}
                 loading={tipsLoading}
+                deck={studyDeck}
                 onGenerate={handleGenerateTips}
                 onMasterFlashcard={handleMasterFlashcard}
+                onAddCardsToDeck={handleAddCardsToDeck}
+                onReviewDeckCard={handleReviewDeckCard}
+                onDeleteDeckCard={handleDeleteDeckCard}
               />
             )}
 
@@ -1481,6 +1593,20 @@ export default function App({ mode }: AppProps = {}) {
                 onDefineAllPending={handleDefineAllPendingVocab}
                 onToggleMastered={handleToggleVocabMastered}
                 onDeleteTerm={handleDeleteVocabTerm}
+                onSendToDeck={(entry) => {
+                  if (!entry.simpleDefinition) return;
+                  handleAddCardsToDeck([
+                    {
+                      front: `Define: ${entry.term}`,
+                      back: entry.analogyOrExample
+                        ? `${entry.simpleDefinition}\n\nExample: ${entry.analogyOrExample}`
+                        : entry.simpleDefinition,
+                      hint: entry.memoryCue,
+                      tags: ['vocab', entry.sourceTitle || 'glossary'],
+                      sourceTitle: entry.sourceTitle,
+                    },
+                  ]);
+                }}
               />
             )}
 

@@ -305,6 +305,38 @@ export async function runDirectProviderCompletion(
       );
     }
 
+    case 'bridge': {
+      const base = (settings.bridgeBaseUrl || 'http://127.0.0.1:4318').replace(/\/+$/, '');
+      const selected = getActiveModelName(settings);
+      const [cliRaw, ...modelParts] = selected.split(':');
+      const cli = ['claude', 'codex', 'gemini'].includes(cliRaw) ? cliRaw : 'claude';
+      const customModel = modelParts.join(':').trim() || undefined;
+
+      let res: Response;
+      try {
+        res = await fetch(`${base}/v1/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cli,
+            model: customModel,
+            systemInstruction: req.systemInstruction,
+            userPrompt: req.userPrompt,
+          }),
+        });
+      } catch {
+        throw new Error(
+          `Could not reach Pebble Local CLI Bridge at ${base}. Start it in your terminal with: npm run bridge`
+        );
+      }
+
+      const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok || !data.text) {
+        throw new Error(data.error || `Local CLI Bridge error (${res.status})`);
+      }
+      return data.text;
+    }
+
     default:
       throw new Error(`Unsupported direct provider: ${settings.provider}`);
   }
@@ -320,6 +352,24 @@ export async function runDirectProviderJson<T>(
     expectJson: true,
   });
   return parseJsonSafe<T>(raw, fallbackError);
+}
+
+export interface BridgeCliStatus {
+  id: 'claude' | 'codex' | 'gemini';
+  label: string;
+  command: string;
+  subscriptionNote: string;
+  installed: boolean;
+}
+
+export async function fetchLocalBridgeStatus(baseUrl: string): Promise<BridgeCliStatus[]> {
+  const base = (baseUrl || 'http://127.0.0.1:4318').replace(/\/+$/, '');
+  const res = await fetch(`${base}/health`);
+  if (!res.ok) {
+    throw new Error(`Bridge health check failed (${res.status})`);
+  }
+  const data = (await res.json()) as { clis?: BridgeCliStatus[] };
+  return data.clis || [];
 }
 
 export async function fetchLocalOllamaModels(baseUrl: string): Promise<string[]> {

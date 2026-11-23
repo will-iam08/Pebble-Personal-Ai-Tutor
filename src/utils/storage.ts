@@ -167,6 +167,10 @@ export function loadAISettings(isExtension: boolean): AIProviderSettings {
         typeof parsed.ollamaBaseUrl === 'string' && parsed.ollamaBaseUrl.trim()
           ? parsed.ollamaBaseUrl.trim()
           : defaults.ollamaBaseUrl,
+      bridgeBaseUrl:
+        typeof parsed.bridgeBaseUrl === 'string' && parsed.bridgeBaseUrl.trim()
+          ? parsed.bridgeBaseUrl.trim()
+          : defaults.bridgeBaseUrl,
     };
   } catch {
     return defaults;

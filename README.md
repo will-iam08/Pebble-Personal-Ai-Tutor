@@ -56,6 +56,7 @@ Pebble is **Bring Your Own Key (BYOK)** — your API keys stay strictly in local
 | **Google Gemini** | Free tier available | Yes | Default `gemini-2.5-flash` via [Google AI Studio](https://aistudio.google.com/apikey) |
 | **OpenRouter** | Free (`:free`) & paid models | No | Access `openrouter/free`, Llama 3.3, DeepSeek R1, Gemma 3, Claude, GPT |
 | **Ollama / LM Studio** | 100% Free & Local | No | Private on-device models with one-click local model discovery |
+| **Local CLI Bridge** | Existing subscriptions | No | Connect Claude Code (Claude Pro/Max), Codex (ChatGPT Plus/Pro), or Gemini CLI locally via `npm run bridge` |
 | **OpenAI** | BYOK API key | No | `gpt-4o-mini`, `gpt-4o`, `o4-mini`, or custom model ID |
 | **Anthropic Claude** | BYOK API key | Yes | Direct browser access with `claude-sonnet-4` & `claude-3-5-haiku` |
 | **Local Server (`.env`)** | Web dev mode | Yes | Uses `server.ts` + `GEMINI_API_KEY` for local web sandbox development |
@@ -102,10 +103,12 @@ You can also switch directly to any BYOK provider (Gemini, OpenRouter, Ollama, O
 | Command | Description |
 | :--- | :--- |
 | `npm run dev` | Start Express + Vite dev server (`http://localhost:3000`) |
+| `npm run bridge` | Start Local CLI Subscription Bridge (`http://127.0.0.1:4318`) for Claude Code / Codex / Gemini CLI |
 | `npm run build` | Build the production web app to `dist/` |
 | `npm run build:extension` | Build the unified React Chrome Extension (MV3) to `dist-extension/` |
 | `npm run build:all` | Build both web (`dist/`) and Chrome extension (`dist-extension/`) |
 | `npm run lint` | Run TypeScript typechecking (`tsc --noEmit`) |
+| `npm test` | Run unit tests (FSRS scheduler, Anki MathJax export, JSON parser) |
 | `npm start` | Run the server in production mode |
 
 ---
@@ -149,9 +152,14 @@ Pebble-Personal-Ai-Tutor/
 - [x] **LaTeX Math & Rich Markdown Rendering:** Full KaTeX math equations, tables, and formatted code blocks across Summary, Quiz, Study Tips, Flashcards, Vocab, and Chat
 - [x] **Multimodal & Video Capture:** One-click tab screenshot capture & clipboard image paste (`Ctrl/Cmd+V`), YouTube lecture transcript import, and right-click Highlight-to-Ask / Save-to-Vocab context menu
 
-### Future (Phase 2)
-- [ ] **FSRS Spaced Repetition & Anki Export:** Real spaced-repetition scheduling for flashcards & vocabulary, plus `.apkg` / CSV export
-- [ ] **Optional Local Subscription Bridge:** Lightweight local companion bridge so power users can connect existing model subscriptions / local CLIs (inspired by T3 Code)
+### Stage 4 — FSRS Spaced Repetition, Anki Export & Subscription Bridge
+- [x] **FSRS Spaced Repetition & Anki Export:** Built-in FSRS-4.5 review queue (Again / Hard / Good / Easy with live interval previews) for flashcards & vocabulary, plus one-click Anki TSV export with MathJax LaTeX support
+- [x] **Optional Local CLI Subscription Bridge:** Lightweight local bridge (`npm run bridge`, inspired by T3 Code) connecting Claude Code, OpenAI Codex CLI, and Gemini CLI subscriptions safely on `127.0.0.1:4318`
+- [x] **Automated Unit Tests & CI:** Node test suite (`npm test`) covering FSRS scheduling, Anki MathJax export, deck deduplication, and resilient JSON parsing
+
+### Up Next (Community Wishlist)
+- [ ] **Chrome Web Store Packaging:** Store listing assets, extension icons, and automated release zip artifact in GitHub Actions
+- [ ] **Cross-Device Deck Sync:** Optional encrypted export/import or cloud sync for study decks and companion progress
 
 ---
 

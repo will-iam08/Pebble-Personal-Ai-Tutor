@@ -229,6 +229,256 @@ if (chrome.contextMenus && chrome.contextMenus.onClicked) {
   });
 }
 
+const RESTRICTED_URL_PREFIXES = [
+  'chrome://',
+  'chrome-extension://',
+  'edge://',
+  'about:',
+  'devtools://',
+  'view-source:',
+  'https://chrome.google.com/webstore',
+  'https://chromewebstore.google.com',
+];
+
+function isRestrictedTabUrl(url) {
+  if (!url) return false;
+  return RESTRICTED_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
+
+function isYouTubeWatchUrl(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return /(^|\.)youtube\.com$/i.test(u.hostname) && u.pathname === '/watch';
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyDirectPdfUrl(url) {
+  if (!url) return false;
+  return /\.pdf($|[?#])/i.test(url) || /\/d2l\/common\/viewFile\.d2lfile/i.test(url);
+}
+
+// Executed inside EVERY frame (including D2L Brightspace / Canvas / Blackboard PDF.js iframes)
+function extractFrameContentAndPdfHints() {
+  const href = window.location.href || '';
+  const pdfUrls = [];
+  const pushPdfUrl = (raw) => {
+    if (!raw || typeof raw !== 'string') return;
+    try {
+      const resolved = new URL(raw, href).href;
+      if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+        if (!pdfUrls.includes(resolved)) pdfUrls.push(resolved);
+      }
+    } catch {
+      // ignore invalid URLs
+    }
+  };
+
+  // 1. Direct PDF document
+  if (document.contentType === 'application/pdf' || /\.pdf($|[?#])/i.test(href)) {
+    pushPdfUrl(href);
+  }
+
+  // 2. PDF.js viewer query parameter (?file=...) — used by D2L Brightspace / Waterloo Learn, Moodle, etc.
+  try {
+    const parsedUrl = new URL(href);
+    const fileParam = parsedUrl.searchParams.get('file');
+    if (fileParam) {
+      pushPdfUrl(fileParam);
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. Embedded <embed>, <object>, <iframe> pointing at PDFs or LMS file viewers
+  document.querySelectorAll('embed, object, iframe').forEach((el) => {
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const src = el.getAttribute('src') || el.getAttribute('data') || '';
+    if (
+      type.includes('pdf') ||
+      /\.pdf($|[?#])/i.test(src) ||
+      /\/content\/enforced\/.+\.pdf/i.test(src) ||
+      /viewFile\.d2lfile/i.test(src)
+    ) {
+      pushPdfUrl(src);
+    }
+    if (src.includes('file=')) {
+      try {
+        const innerUrl = new URL(src, href);
+        const fp = innerUrl.searchParams.get('file');
+        if (fp) pushPdfUrl(fp);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
+  // 4. LMS download links pointing directly to a PDF
+  document.querySelectorAll('a[href]').forEach((a) => {
+    const rawHref = a.getAttribute('href') || '';
+    if (/\.pdf($|[?#])/i.test(rawHref) || /\/content\/enforced\/.+\.pdf/i.test(rawHref)) {
+      pushPdfUrl(rawHref);
+    }
+  });
+
+  // 5. Extract PDF.js rendered text layers if this frame is a PDF.js viewer
+  let pdfJsText = '';
+  const textLayers = document.querySelectorAll('.textLayer, #viewer .page');
+  if (textLayers.length > 0) {
+    const chunks = [];
+    textLayers.forEach((layer) => {
+      const t = (layer.innerText || layer.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t) chunks.push(t);
+    });
+    pdfJsText = chunks.join('\n\n').trim();
+  }
+
+  // 6. Standard clean page text extraction
+  const NOISE_SELECTORS = [
+    'script',
+    'style',
+    'noscript',
+    'nav',
+    'header',
+    'footer',
+    'aside',
+    'iframe',
+    'svg',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]',
+    '.sidebar',
+    '.advertisement',
+    '.ads',
+    '.cookie-banner',
+  ];
+
+  const rootCandidate =
+    document.querySelector('article') ||
+    document.querySelector('main') ||
+    document.querySelector('[role="main"]') ||
+    document.body;
+
+  let pageText = '';
+  if (rootCandidate) {
+    const clone = rootCandidate.cloneNode(true);
+    for (const selector of NOISE_SELECTORS) {
+      clone.querySelectorAll(selector).forEach((el) => el.remove());
+    }
+    pageText = (clone.innerText || clone.textContent || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  return {
+    href,
+    title: document.title || '',
+    isTop: window.self === window.top,
+    pdfUrls,
+    pdfJsText: pdfJsText.slice(0, 36000),
+    pageText: pageText.slice(0, 36000),
+  };
+}
+
+// Executed inside the tab's authenticated origin so LMS session cookies (D2L/Canvas/Blackboard) are included
+async function fetchPdfAsBase64InPage(pdfUrl) {
+  const MAX_BYTES = 15 * 1024 * 1024;
+  try {
+    const res = await fetch(pdfUrl, { credentials: 'include' });
+    if (!res.ok) {
+      return { ok: false, error: `HTTP ${res.status}` };
+    }
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 100 || buf.byteLength > MAX_BYTES) {
+      return { ok: false, error: `Unexpected PDF size (${buf.byteLength} bytes)` };
+    }
+    const bytes = new Uint8Array(buf);
+    // Verify %PDF- magic header (some PDFs have a few leading bytes before %PDF-)
+    let headerStr = '';
+    for (let i = 0; i < Math.min(32, bytes.length); i++) {
+      headerStr += String.fromCharCode(bytes[i]);
+    }
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!headerStr.includes('%PDF-') && !contentType.includes('pdf')) {
+      return { ok: false, error: 'Response was not a PDF document.' };
+    }
+
+    // Encode ArrayBuffer to base64 in chunks to avoid call-stack limits
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const sub = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(sub));
+    }
+    const base64 = btoa(binary);
+
+    let fileName = 'lecture-slides.pdf';
+    try {
+      const pathname = new URL(pdfUrl).pathname;
+      const lastSeg = decodeURIComponent(pathname.split('/').pop() || '');
+      if (lastSeg && lastSeg.length < 120) {
+        fileName = lastSeg.toLowerCase().endsWith('.pdf') ? lastSeg : `${lastSeg}.pdf`;
+      }
+    } catch {
+      // keep fallback filename
+    }
+
+    return {
+      ok: true,
+      base64,
+      sizeBytes: buf.byteLength,
+      fileName,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'PDF fetch failed',
+    };
+  }
+}
+
+async function fetchPdfDirectlyInWorker(pdfUrl) {
+  const MAX_BYTES = 15 * 1024 * 1024;
+  try {
+    const res = await fetch(pdfUrl, { credentials: 'include' });
+    if (!res.ok) return { ok: false };
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 100 || buf.byteLength > MAX_BYTES) return { ok: false };
+    const bytes = new Uint8Array(buf);
+    let headerStr = '';
+    for (let i = 0; i < Math.min(32, bytes.length); i++) {
+      headerStr += String.fromCharCode(bytes[i]);
+    }
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!headerStr.includes('%PDF-') && !contentType.includes('pdf')) {
+      return { ok: false };
+    }
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const sub = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(sub));
+    }
+    let fileName = 'lecture-slides.pdf';
+    try {
+      const pathname = new URL(pdfUrl).pathname;
+      const lastSeg = decodeURIComponent(pathname.split('/').pop() || '');
+      if (lastSeg && lastSeg.length < 120) {
+        fileName = lastSeg.toLowerCase().endsWith('.pdf') ? lastSeg : `${lastSeg}.pdf`;
+      }
+    } catch {
+      // ignore
+    }
+    return { ok: true, base64: btoa(binary), sizeBytes: buf.byteLength, fileName };
+  } catch {
+    return { ok: false };
+  }
+}
+
 // Message router for Side Panel actions
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'RECORD_CHECKIN') {
@@ -273,7 +523,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: false, error: 'No active browser tab found to capture.' });
           return;
         }
-        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        const tabUrl = tab.url || tab.pendingUrl || '';
+        if (isRestrictedTabUrl(tabUrl)) {
           sendResponse({
             ok: false,
             error: 'Cannot screenshot Chrome system pages. Open an article, textbook, or diagram tab first.',
@@ -289,7 +540,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({
           ok: true,
           title: `Screenshot: ${tab.title || 'Active Tab'}`,
-          url: tab.url,
+          url: tabUrl,
           dataUrl,
           base64,
           mimeType: 'image/png',
@@ -316,31 +567,166 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
-      if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      const tabUrl = tab.url || tab.pendingUrl || '';
+      if (isRestrictedTabUrl(tabUrl)) {
         sendResponse({
           ok: false,
-          error: 'Cannot read Chrome system pages. Open an article, textbook, or web notes tab first.',
+          error: 'Cannot read Chrome system pages. Open an article, LMS slide deck, or web notes tab first.',
         });
         return;
       }
 
+      // 1. YouTube watch pages: extract timestamped transcript via content.js
+      if (isYouTubeWatchUrl(tabUrl)) {
+        try {
+          const ytResult = await chrome.tabs.sendMessage(tab.id, { type: 'READ_PAGE_CONTENT' });
+          if (ytResult && ytResult.ok) {
+            sendResponse(ytResult);
+            return;
+          }
+        } catch {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js'],
+          });
+          const retryYt = await chrome.tabs.sendMessage(tab.id, { type: 'READ_PAGE_CONTENT' });
+          if (retryYt && retryYt.ok) {
+            sendResponse(retryYt);
+            return;
+          }
+        }
+      }
+
+      // 2. Direct PDF URLs (Chrome's built-in PDF viewer)
+      if (isLikelyDirectPdfUrl(tabUrl)) {
+        const directPdf = await fetchPdfDirectlyInWorker(tabUrl);
+        if (directPdf.ok) {
+          sendResponse({
+            ok: true,
+            kind: 'pdf',
+            title: tab.title || directPdf.fileName,
+            url: tabUrl,
+            pdfBase64: directPdf.base64,
+            pdfName: directPdf.fileName,
+            fileSizeBytes: directPdf.sizeBytes,
+          });
+          return;
+        }
+      }
+
+      // 3. Inspect ALL frames (top page + embedded LMS / D2L Brightspace / Canvas / PDF.js iframes)
+      let frameResults = [];
       try {
-        const result = await chrome.tabs.sendMessage(tab.id, { type: 'READ_PAGE_CONTENT' });
-        if (result && result.ok) {
-          sendResponse(result);
+        const injected = await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: true },
+          func: extractFrameContentAndPdfHints,
+        });
+        frameResults = injected.map((entry) => ({
+          frameId: entry.frameId,
+          ...(entry.result || {}),
+        }));
+      } catch {
+        // Some PDF viewer tabs block scripting; fall through to screenshot fallback below
+      }
+
+      // Collect PDF candidates + best PDF.js textLayer + best page text across all frames
+      const pdfCandidates = [];
+      let bestPdfJsText = '';
+      let bestPageText = '';
+
+      for (const frame of frameResults) {
+        if (Array.isArray(frame.pdfUrls)) {
+          for (const candidateUrl of frame.pdfUrls) {
+            if (!pdfCandidates.some((c) => c.url === candidateUrl)) {
+              pdfCandidates.push({ url: candidateUrl, frameId: frame.frameId });
+            }
+          }
+        }
+        if (frame.pdfJsText && frame.pdfJsText.length > bestPdfJsText.length) {
+          bestPdfJsText = frame.pdfJsText;
+        }
+        if (frame.pageText && frame.pageText.length > bestPageText.length) {
+          bestPageText = frame.pageText;
+        }
+      }
+
+      const fallbackText = (bestPdfJsText.length >= 40 ? bestPdfJsText : bestPageText).slice(0, 36000);
+
+      // 4. If an embedded PDF was discovered (e.g. D2L Brightspace / Waterloo Learn / Canvas PDF.js viewer),
+      // fetch the actual PDF with the student's logged-in cookies so Pebble gets ALL pages + handwritten ink!
+      for (const candidate of pdfCandidates) {
+        let fetched = null;
+        try {
+          const [res] = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, frameIds: [candidate.frameId] },
+            func: fetchPdfAsBase64InPage,
+            args: [candidate.url],
+          });
+          fetched = res?.result || null;
+        } catch {
+          // Cross-origin frame fetch failed; try service worker fetch next
+        }
+
+        if (!fetched?.ok) {
+          fetched = await fetchPdfDirectlyInWorker(candidate.url);
+        }
+
+        if (fetched?.ok && fetched.base64) {
+          const wordCount = fallbackText ? fallbackText.split(/\s+/).filter(Boolean).length : undefined;
+          sendResponse({
+            ok: true,
+            kind: 'pdf',
+            title: tab.title || fetched.fileName,
+            url: tabUrl || candidate.url,
+            pdfBase64: fetched.base64,
+            pdfName: fetched.fileName,
+            fileSizeBytes: fetched.sizeBytes,
+            text: fallbackText || undefined,
+            wordCount,
+          });
+          return;
+        }
+      }
+
+      // 5. Return extracted text from PDF.js textLayer or richest page frame
+      if (fallbackText.length >= 40) {
+        const wordCount = fallbackText.split(/\s+/).filter(Boolean).length;
+        sendResponse({
+          ok: true,
+          kind: 'page',
+          title: tab.title || 'Untitled Web Page',
+          url: tabUrl,
+          text: fallbackText,
+          wordCount,
+        });
+        return;
+      }
+
+      // 6. Visual slide fallback: if a viewer renders purely to canvas/images with no accessible PDF URL,
+      // automatically capture the visible slide screenshot so the student is never blocked!
+      try {
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+        const base64 = dataUrl.split(',')[1] || '';
+        if (base64) {
+          sendResponse({
+            ok: true,
+            kind: 'image',
+            title: `Slide Snapshot: ${tab.title || 'Active Tab'}`,
+            url: tabUrl,
+            dataUrl,
+            base64,
+            mimeType: 'image/png',
+          });
           return;
         }
       } catch {
-        // Content script not injected yet on this tab — inject dynamically below
+        // Ignore capture failure and return helpful guidance
       }
 
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js'],
+      sendResponse({
+        ok: false,
+        error: 'Could not extract text or PDF from this tab. Click Screenshot to capture the visible slide, or upload the PDF directly.',
       });
-
-      const retryResult = await chrome.tabs.sendMessage(tab.id, { type: 'READ_PAGE_CONTENT' });
-      sendResponse(retryResult || { ok: false, error: 'Unable to extract readable text from this page.' });
     } catch (err) {
       sendResponse({
         ok: false,

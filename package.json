@@ -1,7 +1,7 @@
 {
   "name": "pebble-ai-tutor",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal AI academic study tutor and virtual companion for the Chrome Side Panel.",
   "license": "MIT",
   "repository": {
@@ -25,13 +25,15 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "bridge": "tsx pebble-bridge.ts",
     "start": "node server.ts",
     "build": "vite build",
     "build:extension": "vite build --config vite.extension.config.ts",
     "build:all": "npm run build && npm run build:extension",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-extension server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",
