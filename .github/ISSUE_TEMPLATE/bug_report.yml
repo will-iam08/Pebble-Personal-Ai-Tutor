@@ -1,0 +1,45 @@
+name: Bug Report
+description: Report a bug in the Chrome extension or web workspace
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      options:
+        - Chrome Extension (Side Panel)
+        - Local Web App (Vite / Express)
+        - AI Tutor Output / Model API
+        - Build / Setup
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open...
+        2. Click...
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Chrome version, Node version, and model used.
+      placeholder: "macOS 15, Chrome 135, Node 22, gemini-2.5-flash"

@@ -1,0 +1,24 @@
+name: Feature Request
+description: Suggest an academic tutor feature, model provider, or companion improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What study problem does this solve?
+      description: Describe the workflow or academic need this would improve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should this work in Pebble?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or references
+      description: Any similar tools, papers, or repos that inspired this idea?

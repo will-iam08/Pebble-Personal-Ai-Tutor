@@ -1,6 +1,6 @@
 // Pebble Study Tutor — Chrome Side Panel Logic (Manifest V3)
 
-const GEMINI_MODEL = 'gemini-4-hydrogen';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const STORAGE_KEY_API = 'pebble_gemini_api_key';
 const STORAGE_KEY_PET = 'pebble_study_pet';
 const STORAGE_KEY_THEME = 'pebble_theme';

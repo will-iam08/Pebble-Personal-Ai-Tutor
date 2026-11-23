@@ -1,7 +1,27 @@
 {
-  "name": "react-example",
+  "name": "pebble-ai-tutor",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Personal AI academic study tutor and virtual companion for the Chrome Side Panel.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/will-iam08/Pebble-Personal-Ai-Tutor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/will-iam08/Pebble-Personal-Ai-Tutor/issues"
+  },
+  "homepage": "https://github.com/will-iam08/Pebble-Personal-Ai-Tutor#readme",
+  "keywords": [
+    "ai-tutor",
+    "chrome-extension",
+    "side-panel",
+    "study-tool",
+    "gemini",
+    "flashcards",
+    "react",
+    "typescript"
+  ],
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -29,7 +49,6 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

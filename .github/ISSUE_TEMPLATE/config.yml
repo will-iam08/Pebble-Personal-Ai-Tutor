@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Roadmap & Architecture
+    url: https://github.com/will-iam08/Pebble-Personal-Ai-Tutor#roadmap
+    about: Check planned features before opening a duplicate feature request.
