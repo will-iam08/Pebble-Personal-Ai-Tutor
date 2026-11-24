@@ -154,7 +154,7 @@ export const PROVIDER_CATALOG: ProviderMetadata[] = [
     name: 'Local Server (.env)',
     shortName: 'Server',
     badge: 'Web Dev',
-    description: 'Use the local Express backend (server.ts) with GEMINI_API_KEY from your .env file.',
+    description: 'Use the local Express backend (server/index.ts) with GEMINI_API_KEY from your .env file.',
     requiresApiKey: false,
     supportsPdfNative: true,
     defaultModel: 'server-env',

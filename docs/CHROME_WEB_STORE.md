@@ -31,8 +31,8 @@ Fill in the **Store listing** tab:
   `AI Study Tutor in your Chrome Side Panel: summaries, quizzes, LaTeX math, YouTube & PDF reading, FSRS flashcards, and a study pet.`
 - **Category:** `Education`
 - **Language:** `English`
-- **Store Icon (`128x128`):** Upload `store-assets/icon-128.png`
-- **Small Promo Tile (`440x280`):** Upload `store-assets/promo-small-440x280.png`
+- **Store Icon (`128x128`):** Upload `docs/assets/icon-128.png`
+- **Small Promo Tile (`440x280`):** Upload `docs/assets/promo-small-440x280.png`
 - **Screenshots (`1280x800` or `640x400`, recommended 2–4):**  
   Open Pebble in Chrome's Side Panel beside a lecture PDF or article and capture clean `1280x800` screenshots showing:
   1. Lecture Summary + KaTeX formulas & Pet Companion header

@@ -24,9 +24,9 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "bridge": "tsx pebble-bridge.ts",
-    "start": "node server.ts",
+    "dev": "tsx server/index.ts",
+    "bridge": "tsx server/pebble-bridge.ts",
+    "start": "node server/index.ts",
     "build": "vite build",
     "build:extension": "vite build --config vite.extension.config.ts",
     "build:all": "npm run build && npm run build:extension",

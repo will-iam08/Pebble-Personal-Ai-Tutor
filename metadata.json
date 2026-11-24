@@ -1,8 +1,0 @@
-{
-  "name": "Pebble",
-  "description": "AI-powered Study Tutor Chrome Side Panel extension with a virtual study companion pet, multi-source reader, lecture summaries, interactive quizzes, flashcards, and tutor chat.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

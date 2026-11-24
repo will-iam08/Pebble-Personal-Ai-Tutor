@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./store-assets/icon-128.png" alt="Pebble Icon" width="96" height="96" />
+<img src="./docs/assets/icon-128.png" alt="Pebble Icon" width="96" height="96" />
 
 # Pebble — Personal AI Study Tutor
 
@@ -15,7 +15,7 @@
 [Features](#-features) • [Supported AI Models](#-supported-ai-models) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Roadmap](#-roadmap) • [Privacy Policy](./PRIVACY.md) • [Chrome Web Store Guide](./docs/CHROME_WEB_STORE.md)
 
 <p>
-  <img src="./store-assets/promo-small-440x280.png" alt="Pebble — Personal AI Study Tutor Chrome Side Panel Extension" width="440" />
+  <img src="./docs/assets/promo-small-440x280.png" alt="Pebble — Personal AI Study Tutor Chrome Side Panel Extension" width="440" />
 </p>
 
 </div>
@@ -66,7 +66,7 @@ Pebble is **Bring Your Own Key (BYOK)** — your API keys stay strictly in local
 | **Local CLI Bridge** | Existing subscriptions | No | Connect Claude Code (Claude Pro/Max), Codex (ChatGPT Plus/Pro), or Gemini CLI locally via `npm run bridge` |
 | **OpenAI** | BYOK API key | No | `gpt-4o-mini`, `gpt-4o`, `o4-mini`, or custom model ID |
 | **Anthropic Claude** | BYOK API key | Yes | Direct browser access with `claude-sonnet-4` & `claude-3-5-haiku` |
-| **Local Server (`.env`)** | Web dev mode | Yes | Uses `server.ts` + `GEMINI_API_KEY` for local web sandbox development |
+| **Local Server (`.env`)** | Web dev mode | Yes | Uses `server/index.ts` + `GEMINI_API_KEY` for local web sandbox development |
 
 > **Tip for Ollama in Chrome:** Start Ollama with `OLLAMA_ORIGINS="*"` so Chrome extensions can reach `http://localhost:11434/v1`.
 
@@ -139,9 +139,13 @@ Pebble-Personal-Ai-Tutor/
 │   ├── manifest.json           # Permissions, side panel config & provider host permissions
 │   ├── background.js           # Active-tab / LMS PDF extraction bridge + check-in alarms
 │   └── content.js              # Clean DOM & YouTube transcript extractor
-├── store-assets/               # Chrome Web Store listing artwork (128x128 icon + 440x280 promo tile)
+├── docs/
+│   ├── CHROME_WEB_STORE.md     # Chrome Web Store submission guide
+│   └── assets/                 # Chrome Web Store listing artwork (icon, promo tile & screenshot)
 ├── scripts/                    # Store validation & release zip bundler (package-extension.mjs)
-├── docs/                       # Chrome Web Store submission guide (CHROME_WEB_STORE.md)
+├── server/
+│   ├── index.ts                # Optional local Express proxy (/api/tutor/*) + Vite middleware
+│   └── pebble-bridge.ts        # Optional local subscription CLI bridge (claude, codex, gemini)
 ├── sidepanel.html              # Chrome Side Panel HTML entry (built by vite.extension.config.ts)
 ├── vite.extension.config.ts    # Builds unified React Side Panel + MV3 scripts into dist-extension/
 ├── src/                        # Shared React 19 + TypeScript + Tailwind v4 codebase
@@ -150,8 +154,7 @@ Pebble-Personal-Ai-Tutor/
 │   ├── components/             # Summary, Quiz, Tips, Chat, Vocab, Analytics, Settings, Pet Habitat
 │   ├── utils/                  # aiClient, fsrs, tutorPrompts, extensionBridge, storage, missions
 │   └── types/                  # AI provider catalog + study, pet, and quiz TypeScript models
-├── server.ts                   # Optional local Express proxy (/api/tutor/*) + Vite middleware
-├── pebble-bridge.ts            # Optional local subscription CLI bridge (claude, codex, gemini)
+├── tests/                      # Automated unit tests (pebble.test.ts)
 ├── PRIVACY.md                  # Public Privacy Policy for Chrome Web Store review
 └── .github/                    # CI workflow (with .zip artifact), issue forms, and PR template
 ```
